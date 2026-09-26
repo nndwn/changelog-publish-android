@@ -10,14 +10,14 @@ class ChangelogPublishPlugin : Plugin<Project> {
 
         val resolvedMetadata = target.provider { AndroidMetadataResolver.resolve(target) }
 
-        target.tasks.register("generateChangelog", ChangelogPublishTask::class.java) { task ->
-            task.group = "publishing"
-            task.description = "Generates and outputs release changelog payload for CI/CD"
+        target.tasks.register("generateChangelog", ChangelogPublishTask::class.java) {
+            group = "publishing"
+            description = "Generates and outputs release changelog payload for CI/CD"
 
-            task.appName.convention(extension.appName.orElse(resolvedMetadata.map { it.appName }))
-            task.versionName.convention(extension.versionName.orElse(resolvedMetadata.map { it.versionName }))
-            task.versionCode.convention(extension.versionCode.orElse(resolvedMetadata.map { it.versionCode }))
-            task.releaseNotes.convention(extension.releaseNotes.orElse("No release notes provided"))
+            appName.convention(extension.appName.orElse(resolvedMetadata.map { it.appName }))
+            versionName.convention(extension.versionName.orElse(resolvedMetadata.map { it.versionName }))
+            versionCode.convention(extension.versionCode.orElse(resolvedMetadata.map { it.versionCode }))
+            releaseNotes.convention(extension.releaseNotes.orElse("No release notes provided"))
         }
     }
 }

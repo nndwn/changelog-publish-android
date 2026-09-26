@@ -1,7 +1,6 @@
 plugins {
-    `java-gradle-plugin`
-    kotlin("jvm")
-    kotlin("plugin.serialization")
+    `kotlin-dsl`
+    kotlin("plugin.serialization") version "2.0.21"
     `maven-publish`
 }
 
@@ -34,3 +33,5 @@ dependencies {
     testImplementation(gradleTestKit())
     testImplementation("junit:junit:4.13.2")
 }
+
+
