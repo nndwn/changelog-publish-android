@@ -1,0 +1,49 @@
+package com.nndwn.changelog.publish
+
+import com.nndwn.changelog.publish.data.ChangelogManager
+import com.nndwn.changelog.publish.data.CiPublisher
+import com.nndwn.changelog.publish.domain.model.AndroidMetadata
+import org.gradle.api.DefaultTask
+import org.gradle.api.provider.Property
+import org.gradle.api.tasks.Input
+import org.gradle.api.tasks.TaskAction
+import org.gradle.work.DisableCachingByDefault
+
+@DisableCachingByDefault(because = "Generates dynamic changelog output for CI/CD")
+abstract class ChangelogPublishTask : DefaultTask() {
+
+    @get:Input
+    abstract val appName: Property<String>
+
+    @get:Input
+    abstract val versionName: Property<String>
+
+    @get:Input
+    abstract val versionCode: Property<Int>
+
+    @get:Input
+    abstract val releaseNotes: Property<String>
+
+    @TaskAction
+    fun execute() {
+        val ciInfo = CiPublisher.getCiEnvironmentInfo()
+        val metadata = AndroidMetadata(
+            appName = appName.get(),
+            versionName = versionName.get(),
+            versionCode = versionCode.get()
+        )
+        val payload = ChangelogManager.createPayload(
+            metadata = metadata,
+            releaseNotes = releaseNotes.get(),
+            commitHash = ciInfo["COMMIT_HASH"] ?: "",
+            branchName = ciInfo["BRANCH"] ?: "",
+            environment = ciInfo["CI_PLATFORM"] ?: "Local"
+        )
+
+        val jsonOutput = ChangelogManager.toJson(payload)
+        logger.lifecycle("========================================")
+        logger.lifecycle("CHANGELOG PAYLOAD FOR CI/CD GENERATED:")
+        logger.lifecycle(jsonOutput)
+        logger.lifecycle("========================================")
+    }
+}
