@@ -1,11 +1,13 @@
 package com.nndwn.changelog.publish
 
 import com.nndwn.changelog.publish.data.ChangelogManager
+import com.nndwn.changelog.publish.data.ChangelogParser
 import com.nndwn.changelog.publish.data.CiPublisher
 import com.nndwn.changelog.publish.domain.model.AndroidMetadata
 import org.gradle.api.DefaultTask
 import org.gradle.api.provider.Property
 import org.gradle.api.tasks.Input
+import org.gradle.api.tasks.Optional
 import org.gradle.api.tasks.TaskAction
 import org.gradle.work.DisableCachingByDefault
 
@@ -22,6 +24,7 @@ abstract class ChangelogPublishTask : DefaultTask() {
     abstract val versionCode: Property<Int>
 
     @get:Input
+    @get:Optional
     abstract val releaseNotes: Property<String>
 
     @TaskAction
@@ -32,9 +35,17 @@ abstract class ChangelogPublishTask : DefaultTask() {
             versionName = versionName.get(),
             versionCode = versionCode.get()
         )
+
+        val notes = if (releaseNotes.isPresent && releaseNotes.get().isNotBlank()) {
+            releaseNotes.get()
+        } else {
+            val changelogFile = project.rootProject.file("CHANGELOG.md")
+            ChangelogParser.parseUnreleasedNotes(changelogFile)
+        }
+
         val payload = ChangelogManager.createPayload(
             metadata = metadata,
-            releaseNotes = releaseNotes.get(),
+            releaseNotes = notes,
             commitHash = ciInfo["COMMIT_HASH"] ?: "",
             branchName = ciInfo["BRANCH"] ?: "",
             environment = ciInfo["CI_PLATFORM"] ?: "Local"

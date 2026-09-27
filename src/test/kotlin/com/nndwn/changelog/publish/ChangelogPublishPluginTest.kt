@@ -9,13 +9,17 @@ import org.junit.Test
 class ChangelogPublishPluginTest {
 
     @Test
-    fun applyPlugin_registersTaskAndExtension() {
+    fun applyPlugin_registersTasksAndExtension() {
         val project = ProjectBuilder.builder().build()
         project.plugins.apply("com.nndwn.changelog-publish")
 
-        val task = project.tasks.findByName("generateChangelog")
-        assertNotNull("generateChangelog task should be registered", task)
-        assertTrue("task should be instance of ChangelogPublishTask", task is ChangelogPublishTask)
+        val generateTask = project.tasks.findByName("generateChangelog")
+        assertNotNull("generateChangelog task should be registered", generateTask)
+        assertTrue("generateTask should be instance of ChangelogPublishTask", generateTask is ChangelogPublishTask)
+
+        val releaseTask = project.tasks.findByName("releaseChangelog")
+        assertNotNull("releaseChangelog task should be registered", releaseTask)
+        assertTrue("releaseTask should be instance of ChangelogReleaseTask", releaseTask is ChangelogReleaseTask)
 
         val extension = project.extensions.findByName("changelogPublish")
         assertNotNull("changelogPublish extension should be registered", extension)
@@ -31,5 +35,8 @@ class ChangelogPublishPluginTest {
         assertEquals("TestApp", task.appName.get())
         assertEquals("1.0.0", task.versionName.get())
         assertEquals(1, task.versionCode.get())
+
+        val releaseTask = project.tasks.findByName("releaseChangelog") as ChangelogReleaseTask
+        assertEquals("1.0.0", releaseTask.versionName.get())
     }
 }
