@@ -1,6 +1,6 @@
 plugins {
     `kotlin-dsl`
-    kotlin("plugin.serialization") version "2.0.21"
+    kotlin("plugin.serialization") version "2.4.20"
     `maven-publish`
     id("com.gradle.plugin-publish") version "2.2.1"
 }
@@ -25,7 +25,7 @@ gradlePlugin {
 
 dependencies {
     implementation(gradleApi())
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0")
 
     testImplementation(gradleTestKit())
     testImplementation("junit:junit:4.13.2")
