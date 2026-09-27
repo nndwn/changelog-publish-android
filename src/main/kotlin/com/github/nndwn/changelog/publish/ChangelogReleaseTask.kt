@@ -1,6 +1,6 @@
-package com.nndwn.changelog.publish
+package com.github.nndwn.changelog.publish
 
-import com.nndwn.changelog.publish.data.ChangelogParser
+import com.github.nndwn.changelog.publish.data.ChangelogParser
 import org.gradle.api.DefaultTask
 import org.gradle.api.provider.Property
 import org.gradle.api.tasks.Input

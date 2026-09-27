@@ -1,6 +1,6 @@
-package com.nndwn.changelog.publish
+package com.github.nndwn.changelog.publish
 
-import com.nndwn.changelog.publish.data.ChangelogParser
+import com.github.nndwn.changelog.publish.data.ChangelogParser
 import org.gradle.api.GradleException
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -136,6 +136,23 @@ class ChangelogParserTest {
 
         assertTrue(ChangelogParser.hasVersion(file, "1.2.0"))
         assertFalse(ChangelogParser.hasVersion(file, "1.3.0"))
+    }
+
+    @Test
+    fun hasVersion_matchesVersionWithOptionalVPrefix() {
+        val file = tempFolder.newFile("CHANGELOG.md")
+        file.writeText(
+            """
+            # Changelog
+            
+            ## [v1.2.0] - 2026-03-27
+            - Updated feature
+            """.trimIndent()
+        )
+
+        assertTrue(ChangelogParser.hasVersion(file, "1.2.0"))
+        assertTrue(ChangelogParser.hasVersion(file, "v1.2.0"))
+        assertFalse(ChangelogParser.hasVersion(file, "1.2.1"))
     }
 
     @Test

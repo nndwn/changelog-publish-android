@@ -1,4 +1,4 @@
-package com.nndwn.changelog.publish.data
+package com.github.nndwn.changelog.publish.data
 
 import org.gradle.api.GradleException
 import java.io.File
@@ -53,7 +53,9 @@ object ChangelogParser {
      */
     fun hasVersion(file: File, versionName: String): Boolean {
         if (!file.exists()) return false
-        val regex = Regex("^##\\s*\\[\\s*${Regex.escape(versionName)}\\s*\\].*", RegexOption.IGNORE_CASE)
+        // Ignore an optional leading 'v' so that '## [v1.0.0]' matches versionName '1.0.0'.
+        val normalized = versionName.trim().removePrefix("v").removePrefix("V")
+        val regex = Regex("^##\\s*\\[\\s*[vV]?\\s*${Regex.escape(normalized)}\\s*\\].*", RegexOption.IGNORE_CASE)
         return file.useLines { lines ->
             lines.any { regex.matches(it.trim()) }
         }

@@ -1,8 +1,8 @@
-package com.nndwn.changelog.publish
+package com.github.nndwn.changelog.publish
 
-import com.nndwn.changelog.publish.data.ChangelogManager
-import com.nndwn.changelog.publish.domain.model.AndroidMetadata
-import com.nndwn.changelog.publish.domain.model.ChangelogData
+import com.github.nndwn.changelog.publish.data.ChangelogManager
+import com.github.nndwn.changelog.publish.domain.model.AndroidMetadata
+import com.github.nndwn.changelog.publish.domain.model.ChangelogData
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue

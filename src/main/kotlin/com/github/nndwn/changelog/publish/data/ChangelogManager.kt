@@ -1,7 +1,7 @@
-package com.nndwn.changelog.publish.data
+package com.github.nndwn.changelog.publish.data
 
-import com.nndwn.changelog.publish.domain.model.AndroidMetadata
-import com.nndwn.changelog.publish.domain.model.ChangelogData
+import com.github.nndwn.changelog.publish.domain.model.AndroidMetadata
+import com.github.nndwn.changelog.publish.domain.model.ChangelogData
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
