@@ -1,6 +1,6 @@
-package com.github.nndwn.changelog.publish
+package io.github.nndwn.changelog.publish
 
-import com.github.nndwn.changelog.publish.data.ArtifactNaming
+import io.github.nndwn.changelog.publish.data.ArtifactNaming
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -78,8 +78,8 @@ class ArtifactNamingTest {
             versionCode = 1,
             flavorName = null,
             buildType = "release",
-            fallbackAppName = "com.github.nndwn.app",
+            fallbackAppName = "io.github.nndwn.app",
         )
-        assertEquals("com.github.nndwn.app_v1.0.0(1)_release.apk", fileName)
+        assertEquals("io.github.nndwn.app_v1.0.0(1)_release.apk", fileName)
     }
 }

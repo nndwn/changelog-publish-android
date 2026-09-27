@@ -1,6 +1,6 @@
-package com.github.nndwn.changelog.publish.data
+package io.github.nndwn.changelog.publish.data
 
-import com.github.nndwn.changelog.publish.domain.model.AndroidMetadata
+import io.github.nndwn.changelog.publish.domain.model.AndroidMetadata
 import org.gradle.api.Project
 import java.io.File
 import javax.xml.parsers.DocumentBuilder

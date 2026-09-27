@@ -1,6 +1,6 @@
-package com.github.nndwn.changelog.publish
+package io.github.nndwn.changelog.publish
 
-import com.github.nndwn.changelog.publish.data.CiPublisher
+import io.github.nndwn.changelog.publish.data.CiPublisher
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue

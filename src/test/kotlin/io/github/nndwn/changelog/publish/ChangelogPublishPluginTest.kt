@@ -1,4 +1,4 @@
-package com.github.nndwn.changelog.publish
+package io.github.nndwn.changelog.publish
 
 import org.gradle.testfixtures.ProjectBuilder
 import org.junit.Assert.assertEquals
@@ -11,7 +11,7 @@ class ChangelogPublishPluginTest {
     @Test
     fun applyPlugin_registersTasksAndExtension() {
         val project = ProjectBuilder.builder().build()
-        project.plugins.apply("com.github.nndwn.changelog-publish")
+        project.plugins.apply("io.github.nndwn.changelog-publish")
 
         val generateTask = project.tasks.findByName("generateChangelog")
         assertNotNull("generateChangelog task should be registered", generateTask)
@@ -29,7 +29,7 @@ class ChangelogPublishPluginTest {
     @Test
     fun applyPlugin_autoResolvesMetadataDefaults() {
         val project = ProjectBuilder.builder().withName("TestApp").build()
-        project.plugins.apply("com.github.nndwn.changelog-publish")
+        project.plugins.apply("io.github.nndwn.changelog-publish")
 
         val task = project.tasks.findByName("generateChangelog") as ChangelogPublishTask
         assertEquals("TestApp", task.appName.get())

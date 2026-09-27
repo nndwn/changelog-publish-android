@@ -1,8 +1,8 @@
-package com.github.nndwn.changelog.publish
+package io.github.nndwn.changelog.publish
 
-import com.github.nndwn.changelog.publish.data.AndroidMetadataResolver
-import com.github.nndwn.changelog.publish.data.ArtifactNaming
-import com.github.nndwn.changelog.publish.domain.model.AndroidMetadata
+import io.github.nndwn.changelog.publish.data.AndroidMetadataResolver
+import io.github.nndwn.changelog.publish.data.ArtifactNaming
+import io.github.nndwn.changelog.publish.domain.model.AndroidMetadata
 import org.gradle.api.Action
 import org.gradle.api.DomainObjectCollection
 import org.gradle.api.Plugin

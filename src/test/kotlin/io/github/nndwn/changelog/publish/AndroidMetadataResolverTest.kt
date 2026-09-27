@@ -1,6 +1,6 @@
-package com.github.nndwn.changelog.publish
+package io.github.nndwn.changelog.publish
 
-import com.github.nndwn.changelog.publish.data.AndroidMetadataResolver
+import io.github.nndwn.changelog.publish.data.AndroidMetadataResolver
 import org.gradle.testfixtures.ProjectBuilder
 import org.junit.Assert.assertEquals
 import org.junit.Rule

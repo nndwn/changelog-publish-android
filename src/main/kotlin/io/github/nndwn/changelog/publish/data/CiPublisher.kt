@@ -1,4 +1,4 @@
-package com.github.nndwn.changelog.publish.data
+package io.github.nndwn.changelog.publish.data
 
 /**
  * Helper utility to interact with CI/CD environment variables and prepare release metadata.

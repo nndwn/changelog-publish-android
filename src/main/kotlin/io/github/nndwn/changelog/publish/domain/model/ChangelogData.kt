@@ -1,4 +1,4 @@
-package com.github.nndwn.changelog.publish.domain.model
+package io.github.nndwn.changelog.publish.domain.model
 
 import kotlinx.serialization.Serializable
 

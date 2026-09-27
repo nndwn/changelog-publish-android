@@ -1,4 +1,4 @@
-package com.github.nndwn.changelog.publish
+package io.github.nndwn.changelog.publish
 
 import org.gradle.api.provider.Property
 

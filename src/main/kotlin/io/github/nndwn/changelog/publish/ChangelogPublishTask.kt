@@ -1,9 +1,9 @@
-package com.github.nndwn.changelog.publish
+package io.github.nndwn.changelog.publish
 
-import com.github.nndwn.changelog.publish.data.ChangelogManager
-import com.github.nndwn.changelog.publish.data.ChangelogParser
-import com.github.nndwn.changelog.publish.data.CiPublisher
-import com.github.nndwn.changelog.publish.domain.model.AndroidMetadata
+import io.github.nndwn.changelog.publish.data.ChangelogManager
+import io.github.nndwn.changelog.publish.data.ChangelogParser
+import io.github.nndwn.changelog.publish.data.CiPublisher
+import io.github.nndwn.changelog.publish.domain.model.AndroidMetadata
 import org.gradle.api.DefaultTask
 import org.gradle.api.provider.Property
 import org.gradle.api.tasks.Input

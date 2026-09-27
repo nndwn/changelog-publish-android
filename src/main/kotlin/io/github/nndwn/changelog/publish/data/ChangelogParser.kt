@@ -1,4 +1,4 @@
-package com.github.nndwn.changelog.publish.data
+package io.github.nndwn.changelog.publish.data
 
 import org.gradle.api.GradleException
 import java.io.File

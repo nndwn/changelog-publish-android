@@ -1,7 +1,7 @@
 # Changelog Publish Android Plugin
 
 [![Build](https://github.com/nndwn/changelog-publish-android/actions/workflows/build.yml/badge.svg)](https://github.com/nndwn/changelog-publish-android/actions/workflows/build.yml)
-[![Gradle Plugin Portal](https://img.shields.io/gradle-plugin-portal/v/com.github.nndwn.changelog-publish.svg)](https://plugins.gradle.org/plugin/com.github.nndwn.changelog-publish)
+[![Gradle Plugin Portal](https://img.shields.io/gradle-plugin-portal/v/io.github.nndwn.changelog-publish.svg)](https://plugins.gradle.org/plugin/io.github.nndwn.changelog-publish)
 
 A Gradle Plugin designed to extract Android project metadata, integrate CI/CD environment information, automate `CHANGELOG.md` updates, automatically rename release build artifacts (APKs), and generate release changelog JSON payloads for automated publishing.
 
@@ -106,7 +106,7 @@ Add the plugin to your application module's `build.gradle.kts` (e.g., `:app`):
 
 ```kotlin
 plugins {
-    id("com.github.nndwn.changelog-publish") version "0.1.0"
+    id("io.github.nndwn.changelog-publish") version "0.1.0"
 }
 ```
 
@@ -194,12 +194,12 @@ Gradle automatically publishes two artifacts:
 
 | Artifact | Coordinate | Purpose |
 | :--- | :--- | :--- |
-| Plugin JAR | `com.github.nndwn:changelog-publish-android:<version>` | The plugin implementation |
-| Plugin Marker | `com.github.nndwn.changelog-publish:com.github.nndwn.changelog-publish.gradle.plugin:<version>` | Resolves the `id("com.github.nndwn.changelog-publish")` request |
+| Plugin JAR | `io.github.nndwn:changelog-publish-android:<version>` | The plugin implementation |
+| Plugin Marker | `io.github.nndwn.changelog-publish:io.github.nndwn.changelog-publish.gradle.plugin:<version>` | Resolves the `id("io.github.nndwn.changelog-publish")` request |
 
 ### Consuming the Published Plugin
 ```kotlin
 plugins {
-    id("com.github.nndwn.changelog-publish") version "0.1.0"
+    id("io.github.nndwn.changelog-publish") version "0.1.0"
 }
 ```
