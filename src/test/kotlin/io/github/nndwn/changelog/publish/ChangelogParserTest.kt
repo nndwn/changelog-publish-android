@@ -370,4 +370,27 @@ class ChangelogParserTest {
         assertEquals("- Common\n- English", result.flavors["playstore"]?.get("en-US"))
         assertEquals("- Common\n- Indonesian", result.flavors["playstore"]?.get("id-ID"))
     }
+
+    @Test
+    fun parsePlayReleaseNotes_categoryHeadingInsideFlavorIsFlavorSpecific() {
+        val file = tempFolder.newFile("CHANGELOG.md")
+        file.writeText(
+            """
+            # Changelog
+
+            ## [Unreleased]
+            ### [Playstore]
+            ### Added
+            - Play store added feature
+            ### [FOSS]
+            - Foss note
+            """.trimIndent()
+        )
+
+        val result = ChangelogParser.parsePlayReleaseNotes(file, knownFlavors = setOf("playstore", "foss"), defaultLocale = "en-US")
+
+        assertTrue(result.shared.isEmpty())
+        assertEquals("Added\n  - Play store added feature", result.flavors["playstore"]?.get("en-US"))
+        assertEquals("- Foss note", result.flavors["foss"]?.get("en-US"))
+    }
 }
