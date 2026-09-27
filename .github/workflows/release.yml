@@ -6,16 +6,17 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Release version (e.g. 1.2.0)"
+        description: "Release version (e.g. 0.2.0)"
         required: true
         type: string
 
 permissions:
   contents: write
+  pull-requests: write
 
 jobs:
   release:
-    name: Promote CHANGELOG & Publish Plugin
+    name: Publish Plugin & Create Release PR
     runs-on: ubuntu-latest
     steps:
       - name: Resolve version
@@ -62,27 +63,35 @@ jobs:
       - name: Verify build and tests
         run: ./gradlew build --stacktrace
 
+      - name: Publish plugin to the Gradle Plugin Portal
+        run: ./gradlew publishPlugins --stacktrace
+        env:
+          GRADLE_PUBLISH_KEY: ${{ secrets.GRADLE_PUBLISH_KEY }}
+          GRADLE_PUBLISH_SECRET: ${{ secrets.GRADLE_PUBLISH_SECRET }}
+
       - name: Promote '## [Unreleased]' in CHANGELOG.md
         run: |
           set -euo pipefail
           chmod +x .github/scripts/promote-changelog.sh
           .github/scripts/promote-changelog.sh CHANGELOG.md "${{ steps.version.outputs.version }}"
 
-      - name: Commit CHANGELOG.md
+      - name: Update version in README.md
         run: |
           set -euo pipefail
-          if git diff --quiet -- CHANGELOG.md; then
-            echo "No CHANGELOG.md changes to commit."
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add CHANGELOG.md
-          git commit -m "chore(release): promote ${{ steps.version.outputs.version }} in CHANGELOG.md [skip ci]"
-          git push origin main
+          chmod +x .github/scripts/update-readme.sh
+          .github/scripts/update-readme.sh README.md "${{ steps.version.outputs.version }}"
 
-      - name: Publish plugin to the Gradle Plugin Portal
-        run: ./gradlew publishPlugins --stacktrace
-        env:
-          GRADLE_PUBLISH_KEY: ${{ secrets.GRADLE_PUBLISH_KEY }}
-          GRADLE_PUBLISH_SECRET: ${{ secrets.GRADLE_PUBLISH_SECRET }}
+      - name: Create Pull Request for CHANGELOG.md & README.md Update
+        uses: peter-evans/create-pull-request@v6
+        with:
+          commit-message: "chore(release): promote ${{ steps.version.outputs.version }} in CHANGELOG.md and update README.md"
+          title: "chore(release): promote ${{ steps.version.outputs.version }} in CHANGELOG.md and update README.md"
+          body: |
+            Automated PR generated after successful plugin release **v${{ steps.version.outputs.version }}** to the Gradle Plugin Portal.
+            
+            This PR:
+            - Promotes the `## [Unreleased]` section in `CHANGELOG.md` to `## [${{ steps.version.outputs.version }}]`.
+            - Updates the plugin version snippet in `README.md` to `version "${{ steps.version.outputs.version }}"`.
+          branch: "release/promote-${{ steps.version.outputs.version }}"
+          base: "main"
+          delete-branch: true
