@@ -1,0 +1,83 @@
+package io.github.nndwn.changelog.publish
+
+import io.github.nndwn.changelog.publish.data.ChangelogParser
+import io.github.nndwn.changelog.publish.data.PlayReleaseNotesGenerator
+import org.gradle.api.DefaultTask
+import org.gradle.api.file.DirectoryProperty
+import org.gradle.api.provider.ListProperty
+import org.gradle.api.provider.Property
+import org.gradle.api.tasks.Input
+import org.gradle.api.tasks.Internal
+import org.gradle.api.tasks.Optional
+import org.gradle.api.tasks.TaskAction
+import org.gradle.work.DisableCachingByDefault
+import java.io.File
+
+@DisableCachingByDefault(because = "Generates play store release notes text files from changelog")
+abstract class GeneratePlayReleaseNotesTask : DefaultTask() {
+
+    @get:Input
+    abstract val defaultLocale: Property<String>
+
+    @get:Input
+    abstract val playTrack: Property<String>
+
+    @get:Input
+    @get:Optional
+    abstract val playFlavors: ListProperty<String>
+
+    @get:Input
+    abstract val maxPlayNotesLength: Property<Int>
+
+    @get:Internal
+    abstract val playSourceSetsRoot: DirectoryProperty
+
+    @TaskAction
+    fun execute() {
+        val changelogFile = ChangelogParser.findChangelogFile(project)
+        val defaultLoc = defaultLocale.getOrElse("en-US")
+        val track = playTrack.getOrElse("production")
+        val maxLength = maxPlayNotesLength.getOrElse(500)
+        val knownFlavors = playFlavors.getOrElse(emptyList()).toSet()
+        val sourceSetsRoot = playSourceSetsRoot.get().asFile
+
+        val parsed = ChangelogParser.parsePlayReleaseNotes(
+            file = changelogFile,
+            knownFlavors = knownFlavors,
+            defaultLocale = defaultLoc,
+        )
+
+        parsed.unmatchedHeadings.forEach { heading ->
+            logger.warn("[changelog-publish] Section '### [$heading]' does not match any product flavor; treated as a category heading.")
+        }
+
+        val generatedFiles = mutableListOf<File>()
+
+        if (parsed.shared.isNotEmpty()) {
+            generatedFiles += PlayReleaseNotesGenerator.generate(
+                localizedNotes = parsed.shared,
+                targetDir = File(sourceSetsRoot, "main/play/release-notes"),
+                trackFileName = "$track.txt",
+                maxCharacterLimit = maxLength,
+            )
+        }
+
+        for ((flavor, notes) in parsed.flavors) {
+            if (notes.isNotEmpty()) {
+                generatedFiles += PlayReleaseNotesGenerator.generate(
+                    localizedNotes = notes,
+                    targetDir = File(sourceSetsRoot, "$flavor/play/release-notes"),
+                    trackFileName = "$track.txt",
+                    maxCharacterLimit = maxLength,
+                )
+            }
+        }
+
+        logger.lifecycle("========================================")
+        logger.lifecycle("GENERATED GOOGLE PLAY RELEASE NOTES:")
+        generatedFiles.forEach { file ->
+            logger.lifecycle("  - ${file.relativeTo(project.rootDir)} (${file.length()} chars)")
+        }
+        logger.lifecycle("========================================")
+    }
+}

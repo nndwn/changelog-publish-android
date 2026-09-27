@@ -13,6 +13,7 @@ class ChangelogPublishPlugin : Plugin<Project> {
         val extension = target.extensions.create("changelogPublish", ChangelogPublishExtension::class.java)
 
         val resolvedMetadata = target.provider { AndroidMetadataResolver.resolve(target) }
+        val resolvedFlavors = target.provider { resolveProductFlavorNames(target) }
 
         target.tasks.register("generateChangelog", ChangelogPublishTask::class.java) {
             group = "publishing"
@@ -31,6 +32,23 @@ class ChangelogPublishPlugin : Plugin<Project> {
             description = "Promotes ## [Unreleased] section in CHANGELOG.md to a new release version"
 
             versionName.convention(extension.versionName.orElse(resolvedMetadata.map { it.versionName }))
+        }
+
+        target.tasks.register("generatePlayReleaseNotes", GeneratePlayReleaseNotesTask::class.java) {
+            group = "publishing"
+            description = "Generates Triple-T Play Publisher release notes text files per locale from CHANGELOG.md"
+
+            defaultLocale.convention(extension.defaultLocale.orElse("en-US"))
+            playTrack.convention(extension.playTrack.orElse("production"))
+            playFlavors.convention(
+                extension.playFlavors.zip(resolvedFlavors) { explicit, resolved ->
+                    explicit.ifEmpty { resolved }
+                }
+            )
+            maxPlayNotesLength.convention(extension.maxPlayNotesLength.orElse(500))
+            playSourceSetsRoot.convention(
+                extension.playSourceSetsRoot.orElse(target.layout.projectDirectory.dir("src"))
+            )
         }
 
         configureArtifactRenaming(target, extension)
@@ -61,9 +79,7 @@ class ChangelogPublishPlugin : Plugin<Project> {
             onVariants.invoke(
                 androidComponents,
                 allSelector,
-                object : Action<Any> {
-                    override fun execute(variant: Any) = configureModernVariant(project, extension, variant)
-                },
+                Action<Any> { configureModernVariant(project, extension, this) },
             )
             project.logger.info("[changelog-publish] Artifact renaming is using the AGP androidComponents.onVariants API.")
             true
@@ -124,9 +140,7 @@ class ChangelogPublishPlugin : Plugin<Project> {
             null
         } ?: return
 
-        variants.all(object : Action<Any> {
-            override fun execute(variant: Any) = configureLegacyVariant(project, extension, variant)
-        })
+        variants.all { configureLegacyVariant(project, extension, this) }
     }
 
     private fun configureLegacyVariant(project: Project, extension: ChangelogPublishExtension, variant: Any) {
@@ -143,24 +157,22 @@ class ChangelogPublishPlugin : Plugin<Project> {
             val variantVersionName = mergedFlavor?.let { invokeString(it, "getVersionName") }?.takeIf { it.isNotBlank() }
             val variantVersionCode = mergedFlavor?.let { invokeInt(it, "getVersionCode") }
 
-            val outputs = invokeMethod(variant, "getOutputs") as? DomainObjectCollection<Any> ?: return
+            val outputs = invokeMethod(variant, "getOutputs") as? DomainObjectCollection<*> ?: return
             val resolvedMetadata = AndroidMetadataResolver.resolve(project, flavorName)
 
-            outputs.all(object : Action<Any> {
-                override fun execute(output: Any) {
-                    renameOutput(
-                        project = project,
-                        extension = extension,
-                        output = output,
-                        resolvedMetadata = resolvedMetadata,
-                        flavorName = flavorName,
-                        buildType = buildType,
-                        versionNameSuffix = versionNameSuffix,
-                        variantVersionName = variantVersionName,
-                        variantVersionCode = variantVersionCode,
-                    )
-                }
-            })
+            outputs.all {
+                renameOutput(
+                    project = project,
+                    extension = extension,
+                    output = this,
+                    resolvedMetadata = resolvedMetadata,
+                    flavorName = flavorName,
+                    buildType = buildType,
+                    versionNameSuffix = versionNameSuffix,
+                    variantVersionName = variantVersionName,
+                    variantVersionCode = variantVersionCode,
+                )
+            }
         } catch (e: Exception) {
             project.logger.warn("[changelog-publish] Failed to configure APK renaming for a variant, skipping: ${e.message}")
         }
@@ -273,6 +285,17 @@ class ChangelogPublishPlugin : Plugin<Project> {
             provider.javaClass.getMethod("get").invoke(provider) as? Int
         } catch (_: Exception) {
             null
+        }
+    }
+
+    private fun resolveProductFlavorNames(project: Project): List<String> {
+        return try {
+            val android = project.extensions.findByName("android") ?: return emptyList()
+            val productFlavors = invokeMethod(android, "getProductFlavors") as? Iterable<*> ?: return emptyList()
+            productFlavors.mapNotNull { flavor -> flavor?.let { invokeString(it, "getName") } }
+        } catch (e: Exception) {
+            project.logger.warn("[changelog-publish] Failed to resolve product flavors: ${e.message}")
+            emptyList()
         }
     }
 

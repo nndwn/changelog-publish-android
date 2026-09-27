@@ -37,23 +37,30 @@ The plugin resolves application metadata based on the Android project configurat
 
 ### 2. `CHANGELOG.md` Parsing Contract & Strict Error Handling
 
-The `CHANGELOG.md` file in the root directory adheres to the following parsing rules:
+The `CHANGELOG.md` file in the root directory adheres strictly to the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) convention with the following parsing rules:
 
-1. **Target Section (`## [Unreleased]`)**:
+1. **Flexible File Name Resolution**:
+   * Automatically resolves the changelog file in order of preference (`CHANGELOG.md`, `changelog.md`, `Changelog.md`, `ChangeLog.md`).
+2. **Target Section (`## [Unreleased]`)**:
    * The plugin extracts release notes exclusively under the `## [Unreleased]` section.
-2. **First Match Rule**:
+3. **First Match Rule**:
    * If multiple `## [Unreleased]` sections exist, the plugin **only processes the first `## [Unreleased]` section** found from top to bottom.
-3. **Section Termination**:
+4. **Section Termination**:
    * Parsing terminates immediately when encountering the next version header (e.g., `## [x.x.x]` or a second `## [Unreleased]`) or reaching the end of the file.
-4. **Flavor / Variant Support**:
-   * `CHANGELOG.md` may contain flavor-specific subsections (e.g., `### [FOSS]` or `### [Playstore]`) under `## [Unreleased]`.
-   * The unified `generateChangelog` task captures **all** release notes (global and flavor subsections) into a single JSON payload.
-5. **JSON Escaping**:
+5. **Flavor & Localization Subsections**:
+   * `CHANGELOG.md` supports flavor subsections (e.g., `### [FOSS]` or `### [Playstore]`) and locale/language subsections (e.g., `#### [en-US]`, `#### [id-ID]`).
+   * A `### [X]` heading is treated as a **flavor** only when `X` matches (case-insensitive) a real product flavor from `com.android.application` or an explicit `changelogPublish.playFlavors` entry. Otherwise it is treated as a **category heading** (e.g., `### Added`, `### [Removed]`).
+   * Category headings are preserved: the heading text becomes a line and its bullets are indented.
+6. **JSON Escaping**:
    * Special characters such as double quotes (`"`), newlines (`\n`), and backslashes (`\`) are safely escaped in the generated JSON payload.
-6. **Version Normalization**:
+7. **Version Normalization**:
    * When checking for duplicate versions, an optional leading `v` is ignored (e.g., `## [v1.0.0]` is detected as version `1.0.0`).
-7. **Strict Mode (Fail-Fast Exception)**:
-   * **No silent fallbacks**. If `CHANGELOG.md` is missing, or if the `## [Unreleased]` section is missing or empty, the plugin **throws a `GradleException` (build failure)** with actionable error instructions.
+8. **Strict Mode (Fail-Fast Exception)**:
+   * **No silent fallbacks**. If the changelog file is missing, or if the `## [Unreleased]` section is missing or empty, the plugin **throws a `GradleException` (build failure)** with actionable error instructions.
+
+> [!IMPORTANT]
+> **Google Play Store (GPP) 500-Character Limit Rule**:
+> When using release notes with the Triple-T Gradle Play Publisher (`com.github.triplet.play`) or publishing directly to Google Play (`src/main/play/release-notes/<locale>/production.txt`), Google Play limits release notes to **a maximum of 500 characters per locale**. Ensure localized notes under `#### [<locale>]` stay within this limit to prevent publishing failures.
 
 ---
 
@@ -68,6 +75,12 @@ The `CHANGELOG.md` file in the root directory adheres to the following parsing r
     * **Fails on Duplicate Version**: Throws `GradleException` if current `versionName` already exists in `CHANGELOG.md`.
   * Promotes `## [Unreleased]` to `## [<versionName>] - YYYY-MM-DD` (using system local date in `YYYY-MM-DD` format).
   * Prepends a fresh, empty `## [Unreleased]` section at the top for future development.
+* **`generatePlayReleaseNotes` Task**:
+  * Extracts localized release notes from `CHANGELOG.md` (`## [Unreleased]`) and writes text files formatted for [Triple-T Gradle Play Publisher (GPP)](https://github.com/Triple-T/gradle-play-publisher#release-notes).
+  * **Per-source-set output**: global notes are written to `src/main/play/release-notes/<locale>/<track>.txt`; each flavor section is written to `src/<flavor>/play/release-notes/<locale>/<track>.txt`.
+  * **Track-aware output**: The output file name follows the GPP track (`production` by default). Customize it via `changelogPublish.playTrack` (e.g., `beta`, `alpha`, `internal`).
+  * **Flavor resolution**: `### [X]` is a flavor only if it matches a real product flavor (or `changelogPublish.playFlavors`); otherwise it is a category heading.
+  * **Strict 500-Character Validation**: Automatically verifies that each locale's release notes do not exceed [Google Play Console's 500-character limit](https://support.google.com/googleplay/android-developer/answer/9866151). Throws a `GradleException` if any locale exceeds 500 characters.
 
 ---
 
@@ -115,6 +128,11 @@ plugins {
 ```markdown
 # Changelog
 
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
 ## [Unreleased]
 - Improved main navigation button responsiveness
 - Optimized image loading speed
@@ -124,8 +142,13 @@ plugins {
 - Removed Google Play Services dependencies
 
 ### [Playstore]
+#### [en-US]
 - Integrated Google Billing v7
 - Added Firebase push notifications support
+
+#### [id-ID]
+- Integrasi Google Billing v7
+- Dukungan notifikasi push Firebase
 
 ## [1.0.0] - 2026-03-01
 - Initial release
@@ -145,6 +168,21 @@ Execute this task when finalizing a new release version. It promotes `## [Unrele
 
 ```bash
 ./gradlew releaseChangelog
+```
+
+#### C. Generate Google Play Store Release Notes (GPP)
+Extracts localized release notes under `## [Unreleased]`, validates length (<= 500 characters), and writes GPP-compatible files. By default, global notes go to `src/main/play/release-notes/` and each flavor section goes to `src/<flavor>/play/release-notes/`.
+
+```kotlin
+changelogPublish {
+    playTrack.set("production")                    // -> <locale>/production.txt (default)
+    playFlavors.set(listOf("foss", "playstore"))    // optional: explicit flavor list (else read from android.productFlavors)
+    // playSourceSetsRoot.set(layout.projectDirectory.dir("src")) // optional: override source-set root
+}
+```
+
+```bash
+./gradlew generatePlayReleaseNotes
 ```
 
 #### Sample `CHANGELOG.md` Output After Running `releaseChangelog`:

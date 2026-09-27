@@ -15,7 +15,7 @@ abstract class ChangelogReleaseTask : DefaultTask() {
 
     @TaskAction
     fun execute() {
-        val changelogFile = project.rootProject.file("CHANGELOG.md")
+        val changelogFile = ChangelogParser.findChangelogFile(project)
         val currentVersion = versionName.get()
 
         logger.lifecycle("========================================")

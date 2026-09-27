@@ -2,6 +2,7 @@ package io.github.nndwn.changelog.publish
 
 import io.github.nndwn.changelog.publish.data.ChangelogParser
 import org.gradle.api.GradleException
+import org.gradle.testfixtures.ProjectBuilder
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -84,6 +85,49 @@ class ChangelogParserTest {
         assertTrue(playstoreNotes.contains("- General bug fix"))
         assertTrue(playstoreNotes.contains("- Integrated Billing API"))
         assertFalse(playstoreNotes.contains("Added JSON exporter"))
+    }
+
+    @Test
+    fun parseLocalizedNotes_fallbackToDefaultLocaleWhenNoLocaleHeaders() {
+        val file = tempFolder.newFile("CHANGELOG.md")
+        file.writeText(
+            """
+            # Changelog
+            
+            ## [Unreleased]
+            - Fixed navigation bug
+            """.trimIndent()
+        )
+
+        val map = ChangelogParser.parseLocalizedNotes(file, defaultLocale = "en-US")
+        assertEquals(1, map.size)
+        assertEquals("- Fixed navigation bug", map["en-US"])
+    }
+
+    @Test
+    fun parseLocalizedNotes_parsesMultipleLocalesCorrectly() {
+        val file = tempFolder.newFile("CHANGELOG.md")
+        file.writeText(
+            """
+            # Changelog
+            
+            ## [Unreleased]
+            - Common improvement
+            
+            #### [en-US]
+            - English feature
+            
+            #### [id-ID]
+            - Indonesian feature
+            """.trimIndent()
+        )
+
+        val map = ChangelogParser.parseLocalizedNotes(file, defaultLocale = "en-US")
+        assertEquals(2, map.size)
+        assertTrue(map["en-US"]!!.contains("- Common improvement"))
+        assertTrue(map["en-US"]!!.contains("- English feature"))
+        assertTrue(map["id-ID"]!!.contains("- Common improvement"))
+        assertTrue(map["id-ID"]!!.contains("- Indonesian feature"))
     }
 
     @Test(expected = GradleException::class)
@@ -195,5 +239,135 @@ class ChangelogParserTest {
         )
 
         ChangelogParser.promoteUnreleased(file, "1.1.0", "2026-03-27")
+    }
+
+    @Test
+    fun findChangelogFile_returnsUppercaseByDefaultWhenNoFileExists() {
+        val project = ProjectBuilder.builder().withProjectDir(tempFolder.root).build()
+        val file = ChangelogParser.findChangelogFile(project)
+        assertEquals("CHANGELOG.md", file.name)
+    }
+
+    @Test
+    fun findChangelogFile_findsLowercaseChangelogFile() {
+        val createdFile = tempFolder.newFile("changelog.md")
+        val project = ProjectBuilder.builder().withProjectDir(tempFolder.root).build()
+
+        val file = ChangelogParser.findChangelogFile(project)
+        assertEquals("changelog.md", file.name)
+        assertEquals(createdFile.canonicalPath, file.canonicalPath)
+    }
+
+    @Test
+    fun findChangelogFile_findsTitlecaseChangelogFile() {
+        val createdFile = tempFolder.newFile("Changelog.md")
+        val project = ProjectBuilder.builder().withProjectDir(tempFolder.root).build()
+
+        val file = ChangelogParser.findChangelogFile(project)
+        assertEquals("Changelog.md", file.name)
+        assertEquals(createdFile.canonicalPath, file.canonicalPath)
+    }
+
+    @Test
+    fun parsePlayReleaseNotes_sharedNotesWithNoFlavors() {
+        val file = tempFolder.newFile("CHANGELOG.md")
+        file.writeText(
+            """
+            # Changelog
+            
+            ## [Unreleased]
+            - Global note
+            """.trimIndent()
+        )
+
+        val result = ChangelogParser.parsePlayReleaseNotes(file, knownFlavors = emptySet(), defaultLocale = "en-US")
+        assertEquals(1, result.shared.size)
+        assertEquals("- Global note", result.shared["en-US"])
+        assertTrue(result.flavors.isEmpty())
+    }
+
+    @Test
+    fun parsePlayReleaseNotes_treatsUnmatchedBracketHeadingAsCategory() {
+        val file = tempFolder.newFile("CHANGELOG.md")
+        file.writeText(
+            """
+            # Changelog
+            
+            ## [Unreleased]
+            ### [Added]
+            - sample1
+            - sample2
+            """.trimIndent()
+        )
+
+        val result = ChangelogParser.parsePlayReleaseNotes(file, knownFlavors = emptySet(), defaultLocale = "en-US")
+        assertEquals("Added\n  - sample1\n  - sample2", result.shared["en-US"])
+        assertEquals(listOf("Added"), result.unmatchedHeadings)
+    }
+
+    @Test
+    fun parsePlayReleaseNotes_separatesKnownFlavorsIntoFlavorNotes() {
+        val file = tempFolder.newFile("CHANGELOG.md")
+        file.writeText(
+            """
+            # Changelog
+            
+            ## [Unreleased]
+            - sample
+            ### [Playstore]
+            - khusus untuk playstore
+            ### [FOSS]
+            - khusus untuk foss
+            """.trimIndent()
+        )
+
+        val result = ChangelogParser.parsePlayReleaseNotes(file, knownFlavors = setOf("playstore", "foss"), defaultLocale = "en-US")
+
+        assertEquals("- sample", result.shared["en-US"])
+        assertEquals("- sample\n- khusus untuk playstore", result.flavors["playstore"]?.get("en-US"))
+        assertEquals("- sample\n- khusus untuk foss", result.flavors["foss"]?.get("en-US"))
+    }
+
+    @Test
+    fun parsePlayReleaseNotes_onlyVariantNotes() {
+        val file = tempFolder.newFile("CHANGELOG.md")
+        file.writeText(
+            """
+            # Changelog
+            
+            ## [Unreleased]
+            ### [Playstore]
+            - khusus untuk playstore
+            """.trimIndent()
+        )
+
+        val result = ChangelogParser.parsePlayReleaseNotes(file, knownFlavors = setOf("playstore"), defaultLocale = "en-US")
+
+        assertTrue(result.shared.isEmpty())
+        assertEquals("- khusus untuk playstore", result.flavors["playstore"]?.get("en-US"))
+    }
+
+    @Test
+    fun parsePlayReleaseNotes_flavorWithLocales() {
+        val file = tempFolder.newFile("CHANGELOG.md")
+        file.writeText(
+            """
+            # Changelog
+            
+            ## [Unreleased]
+            - Common
+            ### [Playstore]
+            #### [en-US]
+            - English
+            #### [id-ID]
+            - Indonesian
+            """.trimIndent()
+        )
+
+        val result = ChangelogParser.parsePlayReleaseNotes(file, knownFlavors = setOf("playstore"), defaultLocale = "en-US")
+
+        assertEquals("- Common", result.shared["en-US"])
+        assertEquals("- Common\n- English", result.flavors["playstore"]?.get("en-US"))
+        assertEquals("- Common\n- Indonesian", result.flavors["playstore"]?.get("id-ID"))
     }
 }

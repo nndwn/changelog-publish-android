@@ -39,7 +39,7 @@ abstract class ChangelogPublishTask : DefaultTask() {
         val notes = if (releaseNotes.isPresent && releaseNotes.get().isNotBlank()) {
             releaseNotes.get()
         } else {
-            val changelogFile = project.rootProject.file("CHANGELOG.md")
+            val changelogFile = ChangelogParser.findChangelogFile(project)
             ChangelogParser.parseUnreleasedNotes(changelogFile)
         }
 

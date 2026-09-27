@@ -21,6 +21,10 @@ class ChangelogPublishPluginTest {
         assertNotNull("releaseChangelog task should be registered", releaseTask)
         assertTrue("releaseTask should be instance of ChangelogReleaseTask", releaseTask is ChangelogReleaseTask)
 
+        val playTask = project.tasks.findByName("generatePlayReleaseNotes")
+        assertNotNull("generatePlayReleaseNotes task should be registered", playTask)
+        assertTrue("playTask should be instance of GeneratePlayReleaseNotesTask", playTask is GeneratePlayReleaseNotesTask)
+
         val extension = project.extensions.findByName("changelogPublish")
         assertNotNull("changelogPublish extension should be registered", extension)
         assertTrue("extension should be instance of ChangelogPublishExtension", extension is ChangelogPublishExtension)
@@ -38,5 +42,31 @@ class ChangelogPublishPluginTest {
 
         val releaseTask = project.tasks.findByName("releaseChangelog") as ChangelogReleaseTask
         assertEquals("1.0.0", releaseTask.versionName.get())
+
+        val playTask = project.tasks.findByName("generatePlayReleaseNotes") as GeneratePlayReleaseNotesTask
+        assertEquals("production", playTask.playTrack.get())
+        assertEquals("src", playTask.playSourceSetsRoot.get().asFile.name)
+        assertTrue(playTask.playFlavors.get().isEmpty())
+    }
+
+    @Test
+    fun applyPlugin_resolvesProductFlavorsFromAndroidExtension() {
+        val project = ProjectBuilder.builder().build()
+        // Simulate the AGP `android` extension without pulling in full AGP.
+        project.extensions.add("android", FakeAndroidExtension())
+
+        project.plugins.apply("io.github.nndwn.changelog-publish")
+
+        val playTask = project.tasks.findByName("generatePlayReleaseNotes") as GeneratePlayReleaseNotesTask
+        assertEquals(listOf("playstore", "foss"), playTask.playFlavors.get())
+    }
+
+    class FakeAndroidExtension {
+        fun getProductFlavors(): List<FakeProductFlavor> =
+            listOf(FakeProductFlavor("playstore"), FakeProductFlavor("foss"))
+    }
+
+    class FakeProductFlavor(private val name: String) {
+        fun getName(): String = name
     }
 }
