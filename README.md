@@ -24,7 +24,7 @@ Minimum environment required to consume this plugin in an Android project:
 
 ---
 
-## 📋 Specification & Contract Rules
+## Specification & Contract Rules
 
 ### 1. Android Metadata & Variant Support
 The plugin resolves application metadata based on the Android project configuration:
@@ -112,7 +112,7 @@ The plugin automatically detects common CI providers and extracts commit/branch 
 
 ---
 
-## 🚀 Usage Guide
+## Usage Guide
 
 ### 1. Apply the Plugin
 
