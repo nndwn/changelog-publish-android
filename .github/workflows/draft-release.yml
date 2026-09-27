@@ -1,26 +1,25 @@
 name: Draft Release
 
 on:
-  push:
-    branches: [ main ]
+  workflow_run:
+    workflows: ["Build"]
+    branches: [main]
+    types:
+      - completed
   workflow_dispatch:
 
 permissions:
   contents: write
 
 concurrency:
-  group: draft-release
+  group: draft-release-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  # Reuse the Build workflow so a draft is only created when build + tests pass.
-  build:
-    name: Build & Test
-    uses: ./.github/workflows/build.yml
-
   draft:
     name: Draft Release
-    needs: build
+    # Only run when the triggering 'Build' workflow succeeded
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

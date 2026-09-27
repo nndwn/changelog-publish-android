@@ -1,5 +1,8 @@
 # Changelog Publish Android Plugin
 
+[![Build](https://github.com/nndwn/changelog-publish-android/actions/workflows/build.yml/badge.svg)](https://github.com/nndwn/changelog-publish-android/actions/workflows/build.yml)
+[![Gradle Plugin Portal](https://img.shields.io/gradle-plugin-portal/v/com.github.nndwn.changelog-publish.svg)](https://plugins.gradle.org/plugin/com.github.nndwn.changelog-publish)
+
 A Gradle Plugin designed to extract Android project metadata, integrate CI/CD environment information, automate `CHANGELOG.md` updates, automatically rename release build artifacts (APKs), and generate release changelog JSON payloads for automated publishing.
 
 ---
