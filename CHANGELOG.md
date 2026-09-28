@@ -2,6 +2,9 @@
 # Changelog
 
 ## [Unreleased]
+- test workflow
+
+## [0.2.1] - 2026-09-28
 - Fixed minor issues
 - Added `generatePlayReleaseNotes` task to generate Triple-T Gradle Play Publisher (GPP) release notes from `CHANGELOG.md`
 - Added multi-locale support (`#### [locale]`) with Google Play 500-character limit validation

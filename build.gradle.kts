@@ -6,7 +6,7 @@ plugins {
 }
 
 group = "io.github.nndwn"
-version = "0.2.1"
+version = "0.2.2"
 
 gradlePlugin {
     website = "https://github.com/nndwn/changelog-publish-android"
