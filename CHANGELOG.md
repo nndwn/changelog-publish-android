@@ -3,6 +3,7 @@
 
 ## [Unreleased]
 - test workflow
+- test workflow2
 
 ## [0.2.1] - 2026-09-28
 - Fixed minor issues
