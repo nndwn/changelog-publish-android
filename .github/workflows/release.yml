@@ -83,7 +83,7 @@ jobs:
           .github/scripts/update-readme.sh README.md "${{ steps.version.outputs.version }}"
 
       - name: Create Pull Request for CHANGELOG.md & README.md Update
-        uses: peter-evans/create-pull-request@v6
+        uses: peter-evans/create-pull-request@v8
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           commit-message: "chore(release): promote ${{ steps.version.outputs.version }} in CHANGELOG.md and update README.md"
