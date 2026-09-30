@@ -2,6 +2,8 @@
 # Changelog
 
 ## [Unreleased]
+
+## [0.2.2] - 2026-09-30
 ### Added
 - Added variant-specific changelog tasks (`generateChangelog<VariantName>`) for Android product flavors (e.g., `generateChangelogPlaystoreRelease`, `generateChangelogPlaystore`)
 - Added optional `flavorName` and `variantName` fields to `AndroidMetadata` and `ChangelogData` JSON output payloads
