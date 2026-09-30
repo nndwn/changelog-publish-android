@@ -99,6 +99,17 @@ class AgpFlavorResolutionIntegrationTest {
         val fossFile = projectDir.resolve("src/foss/play/release-notes/en-US/production.txt")
         assertTrue(fossFile.exists())
         assertEquals("- Global improvement\n- Foss specific", fossFile.readText())
+
+        val variantResult = GradleRunner.create()
+            .withProjectDir(projectDir)
+            .withArguments("generateChangelogPlaystoreRelease")
+            .withPluginClasspath()
+            .build()
+
+        assertEquals(TaskOutcome.SUCCESS, variantResult.task(":generateChangelogPlaystoreRelease")?.outcome)
+        assertTrue(variantResult.output.contains("\"flavorName\": \"playstore\""))
+        assertTrue(variantResult.output.contains("\"variantName\": \"playstoreRelease\""))
+        assertTrue(variantResult.output.contains("- Play store specific"))
     }
 
     private fun findAndroidSdk(): File? {

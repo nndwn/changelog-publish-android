@@ -34,15 +34,19 @@ object ChangelogParser {
      * Searches for candidate filenames in order of preference (`CHANGELOG.md`, `changelog.md`, `Changelog.md`, `ChangeLog.md`)
      * and returns the first existing file. If none exist, returns the default file location (`CHANGELOG.md`).
      */
-    fun findChangelogFile(project: Project): File {
+    fun findChangelogFile(rootDir: File): File {
         val candidateNames = listOf("CHANGELOG.md", "changelog.md", "Changelog.md", "ChangeLog.md")
-        val rootDir = project.rootProject.projectDir
 
         val existingFile = candidateNames
             .map { File(rootDir, it) }
             .firstOrNull { it.exists() }
 
-        return existingFile ?: project.rootProject.file("CHANGELOG.md")
+        return existingFile ?: File(rootDir, "CHANGELOG.md")
+    }
+
+    @Deprecated("Use findChangelogFile(rootDir: File) instead to remain configuration cache compatible.")
+    fun findChangelogFile(project: Project): File {
+        return findChangelogFile(project.rootProject.projectDir)
     }
 
     /**

@@ -2,15 +2,23 @@ package io.github.nndwn.changelog.publish
 
 import io.github.nndwn.changelog.publish.data.AndroidMetadataResolver
 import io.github.nndwn.changelog.publish.data.ArtifactNaming
+import io.github.nndwn.changelog.publish.data.ChangelogParser
 import io.github.nndwn.changelog.publish.domain.model.AndroidMetadata
 import org.gradle.api.Action
 import org.gradle.api.DomainObjectCollection
 import org.gradle.api.Plugin
 import org.gradle.api.Project
+import java.lang.reflect.Proxy
 
 class ChangelogPublishPlugin : Plugin<Project> {
     override fun apply(target: Project) {
         val extension = target.extensions.create("changelogPublish", ChangelogPublishExtension::class.java)
+
+        val changelogFileProvider = target.layout.projectDirectory.file(
+            target.provider {
+                ChangelogParser.findChangelogFile(target.rootDir).absolutePath
+            }
+        )
 
         val resolvedMetadata = target.provider { AndroidMetadataResolver.resolve(target) }
         val resolvedFlavors = target.provider { resolveProductFlavorNames(target) }
@@ -19,6 +27,7 @@ class ChangelogPublishPlugin : Plugin<Project> {
             group = "publishing"
             description = "Generates and outputs release changelog payload for CI/CD"
 
+            changelogFile.convention(changelogFileProvider)
             appName.convention(extension.appName.orElse(resolvedMetadata.map { it.appName }))
             versionName.convention(extension.versionName.orElse(resolvedMetadata.map { it.versionName }))
             versionCode.convention(extension.versionCode.orElse(resolvedMetadata.map { it.versionCode }))
@@ -31,6 +40,7 @@ class ChangelogPublishPlugin : Plugin<Project> {
             group = "publishing"
             description = "Promotes ## [Unreleased] section in CHANGELOG.md to a new release version"
 
+            changelogFile.convention(changelogFileProvider)
             versionName.convention(extension.versionName.orElse(resolvedMetadata.map { it.versionName }))
         }
 
@@ -38,6 +48,7 @@ class ChangelogPublishPlugin : Plugin<Project> {
             group = "publishing"
             description = "Generates Triple-T Play Publisher release notes text files per locale from CHANGELOG.md"
 
+            changelogFile.convention(changelogFileProvider)
             defaultLocale.convention(extension.defaultLocale.orElse("en-US"))
             playTrack.convention(extension.playTrack.orElse("production"))
             playFlavors.convention(
@@ -49,6 +60,7 @@ class ChangelogPublishPlugin : Plugin<Project> {
             playSourceSetsRoot.convention(
                 extension.playSourceSetsRoot.orElse(target.layout.projectDirectory.dir("src"))
             )
+            rootDir.convention(target.layout.projectDirectory)
         }
 
         configureArtifactRenaming(target, extension)
@@ -71,16 +83,42 @@ class ChangelogPublishPlugin : Plugin<Project> {
         return try {
             val selector = invokeMethod(androidComponents, "selector") ?: return false
             val allSelector = invokeMethod(selector, "all") ?: return false
-            val onVariants = androidComponents.javaClass.methods.firstOrNull {
-                it.name == "onVariants" && it.parameterTypes.size == 2
-            } ?: return false
 
-            onVariants.isAccessible = true
-            onVariants.invoke(
-                androidComponents,
-                allSelector,
-                Action<Any> { configureModernVariant(project, extension, this) },
-            )
+            val methods = androidComponents.javaClass.methods.filter { it.name == "onVariants" }
+            if (methods.isEmpty()) return false
+
+            val method = methods.firstOrNull {
+                it.parameterTypes.size == 2 && (
+                    Action::class.java.isAssignableFrom(it.parameterTypes[1]) ||
+                    it.parameterTypes[1].name == "kotlin.jvm.functions.Function1"
+                )
+            } ?: methods.firstOrNull {
+                it.parameterTypes.size == 1 && (
+                    Action::class.java.isAssignableFrom(it.parameterTypes[0]) ||
+                    it.parameterTypes[0].name == "kotlin.jvm.functions.Function1"
+                )
+            } ?: methods.firstOrNull { it.parameterTypes.size == 2 }
+              ?: methods.firstOrNull { it.parameterTypes.size == 1 }
+              ?: return false
+
+            method.isAccessible = true
+
+            val callbackParamType = if (method.parameterTypes.size == 2) {
+                method.parameterTypes[1]
+            } else {
+                method.parameterTypes[0]
+            }
+
+            val callback = createCallback(callbackParamType) { variant ->
+                configureModernVariant(project, extension, variant)
+            }
+
+            if (method.parameterTypes.size == 2) {
+                method.invoke(androidComponents, allSelector, callback)
+            } else {
+                method.invoke(androidComponents, callback)
+            }
+
             project.logger.info("[changelog-publish] Artifact renaming is using the AGP androidComponents.onVariants API.")
             true
         } catch (e: Exception) {
@@ -89,11 +127,30 @@ class ChangelogPublishPlugin : Plugin<Project> {
         }
     }
 
+    private fun createCallback(paramType: Class<*>, block: (Any) -> Unit): Any {
+        if (Action::class.java.isAssignableFrom(paramType)) {
+            return Action<Any> { block(this) }
+        }
+        if (paramType.name == "kotlin.jvm.functions.Function1") {
+            return { arg: Any -> block(arg) }
+        }
+        if (paramType.isInterface) {
+            return Proxy.newProxyInstance(paramType.classLoader, arrayOf(paramType)) { _, _, args ->
+                if (args != null && args.isNotEmpty()) {
+                    block(args[0])
+                }
+                null
+            }
+        }
+        return Action<Any> { block(this) }
+    }
+
     private fun configureModernVariant(project: Project, extension: ChangelogPublishExtension, variant: Any) {
         try {
             val buildType = invokeString(variant, "getBuildType") ?: "release"
             if (!buildType.equals("release", ignoreCase = true)) return
 
+            val rawVariantName = invokeString(variant, "getName") ?: buildType
             val flavorName = invokeString(variant, "getFlavorName")?.takeIf { it.isNotBlank() }
             val mergedFlavor = invokeMethod(variant, "getMergedFlavor")
             val versionNameSuffix = mergedFlavor?.let { invokeString(it, "getVersionNameSuffix") }
@@ -101,6 +158,16 @@ class ChangelogPublishPlugin : Plugin<Project> {
                 .orEmpty()
             val variantVersionName = providerString(invokeMethod(variant, "getVersionName"))?.takeIf { it.isNotBlank() }
             val variantVersionCode = providerInt(invokeMethod(variant, "getVersionCode"))
+
+            registerVariantChangelogTask(
+                project = project,
+                extension = extension,
+                rawVariantName = rawVariantName,
+                flavorName = flavorName,
+                versionNameSuffix = versionNameSuffix,
+                variantVersionName = variantVersionName,
+                variantVersionCode = variantVersionCode,
+            )
 
             val outputs = invokeMethod(variant, "getOutputs") as? Iterable<*> ?: return
             val resolvedMetadata = AndroidMetadataResolver.resolve(project, flavorName)
@@ -149,6 +216,7 @@ class ChangelogPublishPlugin : Plugin<Project> {
             val buildType = buildTypeObj?.let { invokeString(it, "getName") } ?: "release"
             if (!buildType.equals("release", ignoreCase = true)) return
 
+            val rawVariantName = invokeString(variant, "getName") ?: buildType
             val flavorName = invokeString(variant, "getFlavorName")?.takeIf { it.isNotBlank() }
             val mergedFlavor = invokeMethod(variant, "getMergedFlavor")
             val versionNameSuffix = mergedFlavor?.let { invokeString(it, "getVersionNameSuffix") }
@@ -156,6 +224,16 @@ class ChangelogPublishPlugin : Plugin<Project> {
                 .orEmpty()
             val variantVersionName = mergedFlavor?.let { invokeString(it, "getVersionName") }?.takeIf { it.isNotBlank() }
             val variantVersionCode = mergedFlavor?.let { invokeInt(it, "getVersionCode") }
+
+            registerVariantChangelogTask(
+                project = project,
+                extension = extension,
+                rawVariantName = rawVariantName,
+                flavorName = flavorName,
+                versionNameSuffix = versionNameSuffix,
+                variantVersionName = variantVersionName,
+                variantVersionCode = variantVersionCode,
+            )
 
             val outputs = invokeMethod(variant, "getOutputs") as? DomainObjectCollection<*> ?: return
             val resolvedMetadata = AndroidMetadataResolver.resolve(project, flavorName)
@@ -175,6 +253,67 @@ class ChangelogPublishPlugin : Plugin<Project> {
             }
         } catch (e: Exception) {
             project.logger.warn("[changelog-publish] Failed to configure APK renaming for a variant, skipping: ${e.message}")
+        }
+    }
+
+    private fun registerVariantChangelogTask(
+        project: Project,
+        extension: ChangelogPublishExtension,
+        rawVariantName: String,
+        flavorName: String?,
+        versionNameSuffix: String,
+        variantVersionName: String?,
+        variantVersionCode: Int?,
+    ) {
+        val changelogFileProvider = project.layout.projectDirectory.file(
+            project.provider {
+                ChangelogParser.findChangelogFile(project.rootDir).absolutePath
+            }
+        )
+
+        val taskNames = mutableListOf("generateChangelog${rawVariantName.replaceFirstChar { it.uppercase() }}")
+        if (!flavorName.isNullOrBlank()) {
+            val flavorTaskName = "generateChangelog${flavorName.replaceFirstChar { it.uppercase() }}"
+            if (!taskNames.contains(flavorTaskName)) {
+                taskNames.add(flavorTaskName)
+            }
+        }
+
+        for (taskName in taskNames) {
+            if (project.tasks.findByName(taskName) != null) continue
+
+            project.tasks.register(taskName, ChangelogPublishTask::class.java) {
+                group = "publishing"
+                description = "Generates and outputs release changelog payload for variant '$rawVariantName'"
+
+                changelogFile.convention(changelogFileProvider)
+                val resolvedMetadata = project.provider { AndroidMetadataResolver.resolve(project, flavorName) }
+
+                appName.convention(extension.appName.orElse(resolvedMetadata.map { it.appName }))
+                versionName.convention(
+                    extension.versionName.orElse(
+                        project.provider {
+                            val baseVName = variantVersionName ?: resolvedMetadata.get().versionName
+                            if (extension.versionName.isPresent) baseVName else "$baseVName$versionNameSuffix"
+                        }
+                    )
+                )
+                versionCode.convention(
+                    extension.versionCode.orElse(
+                        project.provider {
+                            variantVersionCode ?: resolvedMetadata.get().versionCode
+                        }
+                    )
+                )
+                if (!flavorName.isNullOrBlank()) {
+                    this.flavorName.convention(flavorName)
+                }
+                this.variantName.convention(rawVariantName)
+
+                if (extension.releaseNotes.isPresent) {
+                    releaseNotes.convention(extension.releaseNotes)
+                }
+            }
         }
     }
 

@@ -13,14 +13,14 @@ Minimum environment required to consume this plugin in an Android project:
 
 | Component | Minimum | Notes |
 | :--- | :--- | :--- |
-| **Gradle** | 8.0 | Plugin is developed against the Gradle API (this project builds with Gradle 9.3). |
+| **Gradle** | 8.0 | Plugin is developed against the Gradle API and is fully compatible with **Gradle Configuration Cache** (`--configuration-cache`). |
 | **Android Gradle Plugin (AGP)** | 7.0 | Artifact renaming uses the `androidComponents.onVariants` Variant API (AGP 7+), with an automatic fallback to the legacy `applicationVariants` API on older AGP. |
 | **JDK** | 17 | Required to run AGP 8.x builds. |
 | **Kotlin** | 1.9 | Plugin is authored with Kotlin 2.0.21. |
 | **Android module** | — | Module must apply `com.android.application` for artifact renaming. |
 
 > [!NOTE]
-> Metadata resolution and changelog generation also work on non-Android Gradle modules; only the APK artifact renaming requires the Android application plugin.
+> Metadata resolution and changelog generation also work on non-Android Gradle modules; only the APK artifact renaming and variant-specific tasks require the Android application plugin.
 
 ---
 
@@ -29,8 +29,10 @@ Minimum environment required to consume this plugin in an Android project:
 ### 1. Android Metadata & Variant Support
 The plugin resolves application metadata based on the Android project configuration:
 * **`appName`**: Extracted from `AndroidManifest.xml` (and `strings.xml`) matching the target build variant with fallback to `project.name`. Supports flavor overrides (e.g., `src/foss/res/values/strings.xml`).
-* **`versionName`**: Base value extracted from `android.defaultConfig.versionName`. When naming build artifacts, any variant `versionNameSuffix` (e.g., `-foss`) is appended.
+* **`versionName`**: Base value extracted from `android.defaultConfig.versionName`. When naming build artifacts or generating variant payloads, any variant `versionNameSuffix` (e.g., `-foss`) is appended.
 * **`versionCode`**: Extracted from `android.defaultConfig.versionCode`.
+* **`flavorName`**: Extracted for variant-specific tasks (e.g., `playstore` or `foss`).
+* **`variantName`**: Extracted for variant-specific tasks (e.g., `playstoreRelease`).
 * **`releaseNotes`**: Dynamically parsed from the `CHANGELOG.md` file located at the project root or overridden via the `changelogPublish` extension.
 
 ---
@@ -68,7 +70,10 @@ The `CHANGELOG.md` file in the root directory adheres strictly to the [Keep a Ch
 ### 3. Task Registration Contract
 
 * **`generateChangelog` Task**:
-  * Unified Gradle task that extracts metadata, parses `CHANGELOG.md`, and outputs the JSON changelog payload for CI/CD pipelines.
+  * Global Gradle task that extracts metadata, parses `CHANGELOG.md`, and outputs the JSON changelog payload for CI/CD pipelines.
+* **Per-Variant `generateChangelog<VariantName>` Tasks**:
+  * Automatically registered for Android application modules with product flavors (e.g., `generateChangelogPlaystoreRelease`, `generateChangelogFossRelease`, `generateChangelogPlaystore`, `generateChangelogFoss`).
+  * Automatically filters `CHANGELOG.md` for flavor-specific release notes (`### [Flavor]`), appends flavor `versionNameSuffix` (if defined), and includes `"flavorName"` and `"variantName"` fields in the `metadata` JSON payload.
 * **`releaseChangelog` Task**:
   * Single root project task executed during release finalization.
   * **Strict Release Validation**:
@@ -165,8 +170,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### 3. Executing Tasks
 
 #### A. Generate Changelog JSON Payload (CI/CD)
+
+**Global Task:**
 ```bash
 ./gradlew generateChangelog
+```
+
+**Per-Variant / Per-Flavor Tasks:**
+For Android projects with product flavors (e.g., `playstore` and `foss`), run the variant-specific task to extract flavor-filtered release notes and flavor metadata:
+```bash
+./gradlew generateChangelogPlaystoreRelease
+```
+or
+```bash
+./gradlew generateChangelogFossRelease
+```
+
+**Sample Output JSON Payload:**
+```json
+{
+  "metadata": {
+    "appName": "My App",
+    "versionName": "1.2.0-foss",
+    "versionCode": 120,
+    "flavorName": "foss",
+    "variantName": "fossRelease"
+  },
+  "releaseNotes": "- Improved main navigation button responsiveness\n- Optimized image loading speed\n- Added local data export to JSON\n- Removed Google Play Services dependencies",
+  "commitHash": "a1b2c3d4",
+  "branchName": "main",
+  "buildEnvironment": "GitHub Actions"
+}
 ```
 
 #### B. Finalize Release Version (`CHANGELOG.md` Update)
@@ -180,6 +214,7 @@ Execute this task when finalizing a new release version. It promotes `## [Unrele
 Extracts localized release notes under `## [Unreleased]`, validates length (<= 500 characters), and writes GPP-compatible files. By default, global notes go to `src/main/play/release-notes/` and each flavor section goes to `src/<flavor>/play/release-notes/`.
 
 ```kotlin
+//Optional
 changelogPublish {
     playTrack.set("production")                    // -> <locale>/production.txt (default)
     playFlavors.set(listOf("foss", "playstore"))    // optional: explicit flavor list (else read from android.productFlavors)

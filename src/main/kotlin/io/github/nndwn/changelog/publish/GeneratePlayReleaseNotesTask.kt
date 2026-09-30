@@ -4,17 +4,25 @@ import io.github.nndwn.changelog.publish.data.ChangelogParser
 import io.github.nndwn.changelog.publish.data.PlayReleaseNotesGenerator
 import org.gradle.api.DefaultTask
 import org.gradle.api.file.DirectoryProperty
+import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.Property
 import org.gradle.api.tasks.Input
+import org.gradle.api.tasks.InputFile
 import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.Optional
+import org.gradle.api.tasks.PathSensitive
+import org.gradle.api.tasks.PathSensitivity
 import org.gradle.api.tasks.TaskAction
 import org.gradle.work.DisableCachingByDefault
 import java.io.File
 
 @DisableCachingByDefault(because = "Generates play store release notes text files from changelog")
 abstract class GeneratePlayReleaseNotesTask : DefaultTask() {
+
+    @get:InputFile
+    @get:PathSensitive(PathSensitivity.NONE)
+    abstract val changelogFile: RegularFileProperty
 
     @get:Input
     abstract val defaultLocale: Property<String>
@@ -32,17 +40,21 @@ abstract class GeneratePlayReleaseNotesTask : DefaultTask() {
     @get:Internal
     abstract val playSourceSetsRoot: DirectoryProperty
 
+    @get:Internal
+    abstract val rootDir: DirectoryProperty
+
     @TaskAction
     fun execute() {
-        val changelogFile = ChangelogParser.findChangelogFile(project)
+        val file = changelogFile.get().asFile
         val defaultLoc = defaultLocale.getOrElse("en-US")
         val track = playTrack.getOrElse("production")
         val maxLength = maxPlayNotesLength.getOrElse(500)
         val knownFlavors = playFlavors.getOrElse(emptyList()).toSet()
         val sourceSetsRoot = playSourceSetsRoot.get().asFile
+        val rootDirectory = rootDir.orNull?.asFile
 
         val parsed = ChangelogParser.parsePlayReleaseNotes(
-            file = changelogFile,
+            file = file,
             knownFlavors = knownFlavors,
             defaultLocale = defaultLoc,
         )
@@ -75,8 +87,13 @@ abstract class GeneratePlayReleaseNotesTask : DefaultTask() {
 
         logger.lifecycle("========================================")
         logger.lifecycle("GENERATED GOOGLE PLAY RELEASE NOTES:")
-        generatedFiles.forEach { file ->
-            logger.lifecycle("  - ${file.relativeTo(project.rootDir)} (${file.length()} chars)")
+        generatedFiles.forEach { generatedFile ->
+            val displayPath = if (rootDirectory != null) {
+                generatedFile.relativeTo(rootDirectory).path
+            } else {
+                generatedFile.path
+            }
+            logger.lifecycle("  - $displayPath (${generatedFile.length()} chars)")
         }
         logger.lifecycle("========================================")
     }

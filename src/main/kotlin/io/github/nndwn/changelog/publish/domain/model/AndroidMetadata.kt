@@ -9,5 +9,7 @@ import kotlinx.serialization.Serializable
 data class AndroidMetadata(
     val appName: String,
     val versionName: String,
-    val versionCode: Int
+    val versionCode: Int,
+    val flavorName: String? = null,
+    val variantName: String? = null,
 )
