@@ -28,6 +28,7 @@ class ChangelogPublishPlugin : Plugin<Project> {
             description = "Generates and outputs release changelog payload for CI/CD"
 
             changelogFile.convention(changelogFileProvider)
+            outputFile.convention(target.layout.buildDirectory.file("reports/changelog/changelog.json"))
             appName.convention(extension.appName.orElse(resolvedMetadata.map { it.appName }))
             versionName.convention(extension.versionName.orElse(resolvedMetadata.map { it.versionName }))
             versionCode.convention(extension.versionCode.orElse(resolvedMetadata.map { it.versionCode }))
@@ -287,6 +288,7 @@ class ChangelogPublishPlugin : Plugin<Project> {
                 description = "Generates and outputs release changelog payload for variant '$rawVariantName'"
 
                 changelogFile.convention(changelogFileProvider)
+                outputFile.convention(project.layout.buildDirectory.file("reports/changelog/changelog.json"))
                 val resolvedMetadata = project.provider { AndroidMetadataResolver.resolve(project, flavorName) }
 
                 appName.convention(extension.appName.orElse(resolvedMetadata.map { it.appName }))

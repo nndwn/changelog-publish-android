@@ -70,10 +70,10 @@ The `CHANGELOG.md` file in the root directory adheres strictly to the [Keep a Ch
 ### 3. Task Registration Contract
 
 * **`generateChangelog` Task**:
-  * Global Gradle task that extracts metadata, parses `CHANGELOG.md`, and outputs the JSON changelog payload for CI/CD pipelines.
+  * Global Gradle task that extracts metadata, parses `CHANGELOG.md`, logs the JSON changelog payload to console, and automatically saves it to `build/reports/changelog/changelog.json` (or `app/build/reports/changelog/changelog.json` in `:app`) for direct consumption by CI/CD tools (e.g., `jq`, GitHub Actions).
 * **Per-Variant `generateChangelog<VariantName>` Tasks**:
   * Automatically registered for Android application modules with product flavors (e.g., `generateChangelogPlaystoreRelease`, `generateChangelogFossRelease`, `generateChangelogPlaystore`, `generateChangelogFoss`).
-  * Automatically filters `CHANGELOG.md` for flavor-specific release notes (`### [Flavor]`), appends flavor `versionNameSuffix` (if defined), and includes `"flavorName"` and `"variantName"` fields in the `metadata` JSON payload.
+  * Automatically filters `CHANGELOG.md` for flavor-specific release notes (`### [Flavor]`), appends flavor `versionNameSuffix` (if defined), includes `"flavorName"` and `"variantName"` fields in the `metadata` JSON payload, and writes the JSON payload file.
 * **`releaseChangelog` Task**:
   * Single root project task executed during release finalization.
   * **Strict Release Validation**:
@@ -170,6 +170,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### 3. Executing Tasks
 
 #### A. Generate Changelog JSON Payload (CI/CD)
+
+The changelog generation tasks log the payload to the console and automatically save the `.json` report file to `build/reports/changelog/changelog.json` (e.g. `app/build/reports/changelog/changelog.json`), making it instantly available for `jq` or GitHub Actions steps.
 
 **Global Task:**
 ```bash

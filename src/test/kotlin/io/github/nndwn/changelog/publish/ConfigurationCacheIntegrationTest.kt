@@ -32,7 +32,8 @@ class ConfigurationCacheIntegrationTest {
         assertEquals(TaskOutcome.SUCCESS, result1.task(":generateChangelog")?.outcome)
 
         val result2 = runner.build()
-        assertEquals(TaskOutcome.SUCCESS, result2.task(":generateChangelog")?.outcome)
+        val outcome2 = result2.task(":generateChangelog")?.outcome
+        assertTrue(outcome2 == TaskOutcome.SUCCESS || outcome2 == TaskOutcome.UP_TO_DATE)
         assertTrue(
             result2.output.contains("Reusing configuration cache") ||
                 result2.output.contains("Configuration cache entry reused")
