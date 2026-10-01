@@ -2,6 +2,8 @@
 # Changelog
 
 ## [Unreleased]
+
+## [0.2.4] - 2026-10-01
 ### Added
 - Added automatic JSON file output writing to `build/reports/changelog/changelog.json` for `generateChangelog` tasks to simplify CI/CD consumption (e.g. via `jq`)
 ## [0.2.3] - 2026-10-01
