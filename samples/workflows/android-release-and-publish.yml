@@ -1,0 +1,103 @@
+name: Android Release & Publish Workflow
+
+on:
+  release:
+    types: [ published ]
+  workflow_dispatch:
+
+jobs:
+  release-and-publish:
+    name: Build, Sign, Publish to Google Play & Update Changelog
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: main
+
+      - name: Setup Java JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: Make gradlew executable
+        run: chmod +x gradlew
+
+      - name: Setup Google Play Service Account Credentials
+        run: |
+          echo "${{ secrets.PLAY_SERVICE_ACCOUNT_BASE64 }}" | base64 -d > play-service-account.json
+          echo "PLAY_SERVICE_ACCOUNT_FILE=$(pwd)/play-service-account.json" >> $GITHUB_ENV
+
+      - name: Generate Google Play Release Notes
+        run: ./gradlew generatePlayReleaseNotes --stacktrace
+
+      - name: Build Release App Bundles & APKs
+        run: ./gradlew bundleFossRelease bundlePlaystoreRelease assembleFossRelease assemblePlaystoreRelease --stacktrace
+
+      - name: Sign Foss Release APK
+        uses: r0adkll/sign-android-release@v1
+        id: sign_foss_app
+        with:
+          releaseDirectory: app/build/outputs/apk/foss/release
+          signingKeyBase64: ${{ secrets.KEYSTORE_BASE64 }}
+          alias: ${{ secrets.ALIAS }}
+          keyStorePassword: ${{ secrets.KEY_STORE_PASSWORD }}
+          keyPassword: ${{ secrets.KEY_PASSWORD }}
+        env:
+          BUILD_TOOLS_VERSION: "34.0.0"
+
+      - name: Sign Playstore Release APK
+        uses: r0adkll/sign-android-release@v1
+        id: sign_playstore_app
+        with:
+          releaseDirectory: app/build/outputs/apk/playstore/release
+          signingKeyBase64: ${{ secrets.KEYSTORE_BASE64 }}
+          alias: ${{ secrets.ALIAS }}
+          keyStorePassword: ${{ secrets.KEY_STORE_PASSWORD }}
+          keyPassword: ${{ secrets.KEY_PASSWORD }}
+        env:
+          BUILD_TOOLS_VERSION: "34.0.0"
+
+      - name: Publish Playstore Flavor to Google Play Store
+        run: ./gradlew publishPlaystoreReleaseBundle --stacktrace
+        env:
+          PLAY_SERVICE_ACCOUNT_FILE: ${{ env.PLAY_SERVICE_ACCOUNT_FILE }}
+
+      - name: Promote Unreleased Changelog
+        run: ./gradlew releaseChangelog --stacktrace
+
+      - name: Upload Signed APKs & Bundles to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.release.tag_name }}
+          files: |
+            ${{ steps.sign_foss_app.outputs.signedReleaseFile }}
+            ${{ steps.sign_playstore_app.outputs.signedReleaseFile }}
+            app/build/outputs/bundle/fossRelease/app-foss-release.aab
+            app/build/outputs/bundle/playstoreRelease/app-playstore-release.aab
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create Pull Request for Updated CHANGELOG.md
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "chore(release): promote release in CHANGELOG.md [${{ github.event.release.tag_name }}]"
+          title: "chore(release): update CHANGELOG.md for ${{ github.event.release.tag_name }}"
+          body: |
+            Automated PR generated after successful release and Google Play Store publishing for **${{ github.event.release.tag_name }}**.
+            
+            This PR contains the updated `CHANGELOG.md` file promoted by `./gradlew releaseChangelog`.
+          branch: "release/changelog-update-${{ github.event.release.tag_name }}"
+          base: "main"
+          delete-branch: true

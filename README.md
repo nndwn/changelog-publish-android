@@ -7,6 +7,55 @@ A Gradle Plugin designed to extract Android project metadata, integrate CI/CD en
 
 ---
 
+## Quick Start
+
+Get up and running in seconds. The plugin is **zero-configuration** — all settings below are optional.
+
+### 1. Install the Plugin
+
+Add the plugin to your **application module** `build.gradle.kts` (e.g., `:app`):
+
+```kotlin
+plugins {
+    id("io.github.nndwn.changelog-publish") version "0.2.4"
+}
+```
+
+### 2. Add a `CHANGELOG.md` at the Project Root
+
+```markdown
+# Changelog
+
+## [Unreleased]
+- Improved main navigation button responsiveness
+- Optimized image loading speed
+
+## [1.0.0] - 2026-03-01
+- Initial release
+```
+
+### 3. Run a Task
+
+```bash
+# Prints the CI/CD JSON payload to the console AND saves it to
+# build/reports/changelog/changelog.json for tools like `jq`.
+./gradlew generateChangelog
+```
+
+That's it! Metadata (`appName`, `versionName`, `versionCode`) is auto-resolved from your `AndroidManifest.xml` and `android.defaultConfig`.
+
+### 4. Automate Your Release (Add Workflows)
+
+Copy the production-ready workflow templates from the [`samples/workflows`](file:///home/nndwn/dev/changelog-publish-android/samples/workflows) directory into your `.github/workflows/` folder and adjust them to your needs:
+
+* **[android-build-and-draft.yml](file:///home/nndwn/dev/changelog-publish-android/samples/workflows/android-build-and-draft.yml)** — CI: runs unit tests, generates the changelog JSON payload, and creates a GitHub Draft Release on every push to `main`.
+* **[android-release-and-publish.yml](file:///home/nndwn/dev/changelog-publish-android/samples/workflows/android-release-and-publish.yml)** — Release: signs APKs/AABs, publishes to the Google Play Store (Triple-T GPP), promotes `CHANGELOG.md`, and opens an automated PR.
+
+> [!TIP]
+> New here? Jump straight to [Usage Guide](#usage-guide) for detailed task examples, or read the full [Specification & Contract Rules](#specification--contract-rules) for advanced behavior.
+
+---
+
 ## Requirements (Minimum Specification)
 
 Minimum environment required to consume this plugin in an Android project:
@@ -284,3 +333,12 @@ plugins {
     id("io.github.nndwn.changelog-publish") version "0.2.4"
 }
 ```
+
+---
+
+## Sample GitHub Actions Workflows
+
+Ready-to-use production GitHub Actions workflow templates integrating this plugin:
+
+* **[android-build-and-draft.yml](file:///home/nndwn/dev/changelog-publish-android/samples/workflows/android-build-and-draft.yml)**: Continuous integration workflow that runs unit tests, generates changelog JSON payloads, cleans up stale draft releases, and creates updated GitHub Draft Releases on pushes to `main`.
+* **[android-release-and-publish.yml](file:///home/nndwn/dev/changelog-publish-android/samples/workflows/android-release-and-publish.yml)**: Full release automation workflow triggered when publishing a GitHub release. Decodes Google Play credentials, generates GPP release notes, signs APKs/AABs, publishes to Google Play Store, promotes `CHANGELOG.md` via `releaseChangelog`, and opens an automated PR to update `main`.
