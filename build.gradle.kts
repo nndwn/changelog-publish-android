@@ -1,3 +1,6 @@
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+
 plugins {
     `kotlin-dsl`
     kotlin("plugin.serialization") version "2.4.20"
@@ -6,7 +9,18 @@ plugins {
 }
 
 group = "io.github.nndwn"
-version = "0.2.2"
+version = "0.2.3"
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+}
+
+tasks.withType<KotlinCompile>().configureEach {
+    compilerOptions {
+        jvmTarget.set(JvmTarget.JVM_17)
+    }
+}
 
 gradlePlugin {
     website = "https://github.com/nndwn/changelog-publish-android"

@@ -2,6 +2,8 @@
 # Changelog
 
 ## [Unreleased]
+### Fixed
+- Fixed Gradle JVM compatibility error by explicitly setting Java 17 target bytecode compatibility (`JavaVersion.VERSION_17` & `JvmTarget.JVM_17`) in `build.gradle.kts`
 
 ## [0.2.2] - 2026-09-30
 ### Added
