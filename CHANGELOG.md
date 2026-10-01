@@ -2,7 +2,8 @@
 # Changelog
 
 ## [Unreleased]
-
+### Added
+- Added automatic JSON file output writing to `build/reports/changelog/changelog.json` for `generateChangelog` tasks to simplify CI/CD consumption (e.g. via `jq`)
 ## [0.2.3] - 2026-10-01
 ### Fixed
 - Fixed Gradle JVM compatibility error by explicitly setting Java 17 target bytecode compatibility (`JavaVersion.VERSION_17` & `JvmTarget.JVM_17`) in `build.gradle.kts`
