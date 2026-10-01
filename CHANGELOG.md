@@ -2,6 +2,9 @@
 # Changelog
 
 ## [Unreleased]
+### Added
+- Added a **Quick Start** section to `README.md` for faster onboarding
+- Added production-ready GitHub Actions workflow templates under `samples/workflows/` (`android-build-and-draft.yml`, `android-release-and-publish.yml`)
 
 ## [0.2.4] - 2026-10-01
 ### Added
