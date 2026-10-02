@@ -17,7 +17,7 @@ Add the plugin to your **application module** `build.gradle.kts` (e.g., `:app`):
 
 ```kotlin
 plugins {
-    id("io.github.nndwn.changelog-publish") version "0.3.1"
+    id("io.github.nndwn.changelog-publish") version "0.3.2"
 }
 ```
 
@@ -182,7 +182,7 @@ Add the plugin to your application module's `build.gradle.kts` (e.g., `:app`):
 
 ```kotlin
 plugins {
-    id("io.github.nndwn.changelog-publish") version "0.3.1"
+    id("io.github.nndwn.changelog-publish") version "0.3.2"
 }
 ```
 
@@ -339,7 +339,7 @@ Gradle automatically publishes two artifacts:
 ### Consuming the Published Plugin
 ```kotlin
 plugins {
-    id("io.github.nndwn.changelog-publish") version "0.3.1"
+    id("io.github.nndwn.changelog-publish") version "0.3.2"
 }
 ```
 

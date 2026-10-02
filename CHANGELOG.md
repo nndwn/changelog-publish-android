@@ -2,6 +2,8 @@
 # Changelog
 
 ## [Unreleased]
+
+## [0.3.2] - 2026-10-02
 ### Changed
 - `generateChangelog` (and the per-variant `generateChangelog<VariantName>` tasks) no longer validate the changelog. A missing changelog file, a missing `## [Unreleased]` section, or an empty section now yields a payload with an empty `"releaseNotes"` field plus a warning, instead of a `GradleException`. This keeps CI green on a push to `main` that arrives right after `releaseChangelog` emptied `## [Unreleased]`. The release tasks (`releaseChangelog`, `generatePlayReleaseNotes`) keep their strict fail-fast behaviour.
 
