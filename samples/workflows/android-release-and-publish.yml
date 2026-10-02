@@ -58,7 +58,7 @@ jobs:
 
       # Secret Variable:
       # - PLAY_SERVICE_ACCOUNT_BASE64: Google Play service account key. Either form is accepted:
-      #     a) base64 text of the key file  ->  base64 -w 0 play-service-account.json
+      #     a) base64 text of the key file  ->  base64 -w 0 play-service-account.json > play-service-account-base64.txt
       #     b) the raw JSON key itself
       #   A file *path* can never work - Google Play Publisher parses the resulting bytes as JSON.
       #   Newlines inside the JSON (e.g. the escaped \n of "private_key") are harmless: they survive
@@ -78,7 +78,7 @@ jobs:
             :
           else
             echo "::error::Secret PLAY_SERVICE_ACCOUNT_BASE64 is neither the raw JSON key nor valid base64 of it."
-            echo "::error::Generate it with: base64 -w 0 <downloaded-key>.json"
+            echo "::error::Generate it with: base64 -w 0 <downloaded-key>.json > key-base64.txt"
             exit 1
           fi
           rm -f "$RUNNER_TEMP/credentials.secret"

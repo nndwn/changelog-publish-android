@@ -96,6 +96,28 @@ abstract class GeneratePlayReleaseNotesTask : DefaultTask() {
             )
         }
 
+        // Triple-T metadata at *flavor* level - this is the layout F-Droid reads.
+        //
+        // F-Droid resolves store metadata from `<module>/src/<buildFlavor>/play/` on a clean git
+        // clone, so the variant source sets written above (`src/<variantName>/play/`) are invisible
+        // to it: those are build outputs and are normally git-ignored. Whenever a project already
+        // ships Triple-T metadata for a flavor, keep its `default.txt` changelog in sync.
+        val tripleTSourceSets = LinkedHashSet<String>()
+        for ((_, flavor) in variants) {
+            tripleTSourceSets.add(if (flavor.isBlank()) "main" else flavor)
+        }
+
+        for (sourceSet in tripleTSourceSets) {
+            val releaseNotesDir = File(sourceSetsRoot, "$sourceSet/play/release-notes")
+            if (!releaseNotesDir.isDirectory) continue
+
+            generatedFiles += PlayReleaseNotesGenerator.updateTripleTDefaultChangelog(
+                localizedNotes = parsed.flavors[sourceSet] ?: parsed.shared,
+                targetDir = releaseNotesDir,
+                maxCharacterLimit = maxLength,
+            )
+        }
+
         logger.lifecycle("========================================")
         logger.lifecycle("GENERATED GOOGLE PLAY RELEASE NOTES:")
         generatedFiles.forEach { generatedFile ->

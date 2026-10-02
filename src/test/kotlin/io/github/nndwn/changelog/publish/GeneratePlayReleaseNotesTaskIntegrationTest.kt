@@ -55,10 +55,71 @@ class GeneratePlayReleaseNotesTaskIntegrationTest {
             assertEquals("- Global improvement\n- Foss specific", fossFile.readText())
         }
 
-        // The old src/main and src/<flavor> locations must no longer be used.
+        // Only `default.txt` is refreshed at flavor level, and only for flavors that already ship
+        // Triple-T metadata, so no GPP track file may appear there.
         assertFalse(projectDir.resolve("src/main/play/release-notes/en-US/production.txt").exists())
         assertFalse(projectDir.resolve("src/playstore/play/release-notes/en-US/production.txt").exists())
         assertFalse(projectDir.resolve("src/foss/play/release-notes/en-US/production.txt").exists())
+    }
+
+    @Test
+    fun refreshesTripleTDefaultChangelogOfFlavorSourceSets() {
+        val projectDir = tempFolder.newFolder("fixture")
+        writeFixture(
+            projectDir = projectDir,
+            changelog = """
+                # Changelog
+
+                ## [Unreleased]
+                - Global improvement
+                ### [FOSS]
+                - Foss specific
+                ## [1.0.0] - 2026-03-01
+                - Initial
+            """.trimIndent(),
+        )
+
+        // The project already ships Triple-T metadata at flavor level, which is exactly what F-Droid
+        // reads from `<module>/src/<buildFlavor>/play/`.
+        val flavorNotesDir = projectDir.resolve("src/foss/play/release-notes/en-US").apply { mkdirs() }
+        flavorNotesDir.resolve("production.txt").writeText("- previous release")
+        flavorNotesDir.resolve("hand-written.txt").writeText("- hand written")
+
+        val result = runTask(projectDir)
+
+        assertEquals(TaskOutcome.SUCCESS, result.task(":generatePlayReleaseNotes")?.outcome)
+
+        val defaultNotes = flavorNotesDir.resolve("default.txt")
+        assertTrue("Missing $defaultNotes", defaultNotes.exists())
+        assertEquals("- Global improvement\n- Foss specific", defaultNotes.readText())
+
+        // Non-destructive: hand-maintained files and unrelated tracks must survive untouched.
+        assertEquals("- previous release", flavorNotesDir.resolve("production.txt").readText())
+        assertEquals("- hand written", flavorNotesDir.resolve("hand-written.txt").readText())
+    }
+
+    @Test
+    fun doesNotCreateTripleTMetadataForFlavorsWithoutIt() {
+        val projectDir = tempFolder.newFolder("fixture")
+        writeFixture(
+            projectDir = projectDir,
+            changelog = """
+                # Changelog
+
+                ## [Unreleased]
+                - Global improvement
+                ## [1.0.0] - 2026-03-01
+                - Initial
+            """.trimIndent(),
+        )
+
+        val result = runTask(projectDir)
+
+        assertEquals(TaskOutcome.SUCCESS, result.task(":generatePlayReleaseNotes")?.outcome)
+
+        assertFalse(projectDir.resolve("src/foss/play").exists())
+        assertFalse(projectDir.resolve("src/playstore/play").exists())
+        assertFalse(projectDir.resolve("src/main/play").exists())
     }
 
     @Test

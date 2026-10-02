@@ -14,6 +14,9 @@ object PlayReleaseNotesGenerator {
 
     private const val TRACK_FILE_EXTENSION = ".txt"
 
+    /** Changelog file F-Droid reads inside a Triple-T `<locale>` directory. */
+    private const val DEFAULT_TRACK_FILE_NAME = "default.txt"
+
     /**
      * Writes localized release notes to directory structure `<targetDir>/<locale>/<track>.txt`.
      *
@@ -56,6 +59,36 @@ object PlayReleaseNotesGenerator {
         }
 
         return generatedFiles
+    }
+
+    /**
+     * Updates only the `default.txt` changelog of an existing Triple-T release notes directory.
+     *
+     * F-Droid resolves store metadata from the product flavor source set
+     * (`<module>/src/<buildFlavor>/play/`) of a clean git clone, so unlike [generate] the target
+     * directory is part of the app's source tree and must be refreshed in place.
+     *
+     * This is strictly non-destructive: nothing but `default.txt` is ever written, and no file or
+     * locale directory is ever removed, because everything inside [targetDir] is authored and
+     * committed by the developer. A locale directory is created only when the changelog actually
+     * provides notes for that locale.
+     *
+     * @return every file that was written.
+     * @throws GradleException if any locale release notes exceed [maxCharacterLimit].
+     */
+    fun updateTripleTDefaultChangelog(
+        localizedNotes: Map<String, String>,
+        targetDir: File,
+        maxCharacterLimit: Int = 500,
+    ): List<File> {
+        if (localizedNotes.isEmpty()) return emptyList()
+
+        validateNoteLengths(localizedNotes, maxCharacterLimit)
+
+        return localizedNotes.map { (locale, notes) ->
+            val localeDir = File(targetDir, locale).apply { if (!exists()) mkdirs() }
+            File(localeDir, DEFAULT_TRACK_FILE_NAME).apply { writeText(notes) }
+        }
     }
 
     private fun validateNoteLengths(localizedNotes: Map<String, String>, maxCharacterLimit: Int) {
