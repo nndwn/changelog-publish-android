@@ -34,14 +34,31 @@ object PlayReleaseNotesGenerator {
         playTracks: List<String>,
         maxCharacterLimit: Int = 500,
     ): List<File> {
-        val generatedFiles = mutableListOf<File>()
-        if (localizedNotes.isEmpty() || playTracks.isEmpty()) return generatedFiles
+        if (localizedNotes.isEmpty() || playTracks.isEmpty()) return emptyList()
 
         val trackFileNames = playTracks.map { track ->
             if (track.endsWith(TRACK_FILE_EXTENSION)) track else "$track$TRACK_FILE_EXTENSION"
         }
 
-        // First pass: Validate length for all locales
+        validateNoteLengths(localizedNotes, maxCharacterLimit)
+        cleanupStaleLocales(targetDir, localizedNotes.keys)
+
+        val generatedFiles = mutableListOf<File>()
+        for ((locale, notes) in localizedNotes) {
+            val localeDir = File(targetDir, locale).apply { if (!exists()) mkdirs() }
+            cleanupStaleTrackFiles(localeDir, trackFileNames)
+
+            for (trackFileName in trackFileNames) {
+                val outputFile = File(localeDir, trackFileName)
+                outputFile.writeText(notes)
+                generatedFiles.add(outputFile)
+            }
+        }
+
+        return generatedFiles
+    }
+
+    private fun validateNoteLengths(localizedNotes: Map<String, String>, maxCharacterLimit: Int) {
         for ((locale, notes) in localizedNotes) {
             val length = notes.length
             if (length > maxCharacterLimit) {
@@ -54,33 +71,23 @@ object PlayReleaseNotesGenerator {
                 )
             }
         }
+    }
 
-        // Clean up stale locale directories from previous runs.
-        val activeLocales = localizedNotes.keys
+    private fun cleanupStaleLocales(targetDir: File, activeLocales: Set<String>) {
         targetDir.listFiles()?.forEach { existing ->
             if (existing.isDirectory && existing.name !in activeLocales) {
-                existing.deleteRecursively()
+                val deleted = existing.deleteRecursively()
+                check(deleted || !existing.exists())
             }
         }
+    }
 
-        // Second pass: Write files
-        for ((locale, notes) in localizedNotes) {
-            val localeDir = File(targetDir, locale)
-            if (!localeDir.exists()) {
-                localeDir.mkdirs()
+    private fun cleanupStaleTrackFiles(localeDir: File, trackFileNames: List<String>) {
+        localeDir.listFiles()
+            ?.filter { it.isFile && it.name !in trackFileNames }
+            ?.forEach { file ->
+                val deleted = file.delete()
+                check(deleted || !file.exists())
             }
-
-            localeDir.listFiles()
-                ?.filter { it.isFile && it.name !in trackFileNames }
-                ?.forEach { it.delete() }
-
-            for (trackFileName in trackFileNames) {
-                val outputFile = File(localeDir, trackFileName)
-                outputFile.writeText(notes)
-                generatedFiles.add(outputFile)
-            }
-        }
-
-        return generatedFiles
     }
 }
