@@ -12,3 +12,4 @@
 - [x] 🔺 #issue #production #v0.2.3 This project is configured to use an older Gradle JVM that supports up to version 21 but the dependency 'io.github.nndwn:changelog-publish-android:0.2.2' requires a Gradle JVM that supports version 25 🛫 2026-10-01 11:50 ✅ 2026-10-01 11:54 ➕ 2026-10-01 11:50 🆔 jHFsj7
 - [x] ⏫ tambahkan fitur output json #development #v0.2.4 #feature 🛫 2026-10-01 12:47 ✅ 2026-10-01 12:47 ➕ 2026-10-01 12:46 🆔 V3IZSg
 - [x] 🔺 #issue plugin masih bermasalah di variant dan ada masalah di track GPP #production #v0.3.0 🛫 2026-10-02 07:02 ✅ 2026-10-02 07:02 ➕ 2026-10-02 07:00 🆔 RY2CPp
+- [ ] 🔼 perbaikin #Readme masih ada tulisan Specification & Contract Rules ➕ 2026-10-02 07:12 🆔 TJJ40b
