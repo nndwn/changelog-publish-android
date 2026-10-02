@@ -51,6 +51,11 @@ Copy the production-ready workflow templates from the [`samples/workflows`](file
 * **[android-build-and-draft.yml](/samples/workflows/android-build-and-draft.yml)** — CI: runs unit tests, generates the changelog JSON payload, and creates a GitHub Draft Release on every push to `main`.
 * **[android-release-and-publish.yml](/samples/workflows/android-release-and-publish.yml)** — Release: signs APKs/AABs, publishes to the Google Play Store (Triple-T GPP), promotes `CHANGELOG.md`, and opens an automated PR.
 
+> [!IMPORTANT]
+> **GitHub Actions Permissions**:
+> To enable automated Pull Request creation for updated `CHANGELOG.md` files (used in `android-release-and-publish.yml`), make sure to enable the permission in GitHub:
+> Go to **Settings** $\rightarrow$ **Actions** $\rightarrow$ **General** $\rightarrow$ **Workflow permissions** and check **"Allow GitHub Actions to create and approve pull requests"**.
+
 > [!TIP]
 > New here? Jump straight to [Usage Guide](#usage-guide) for detailed task examples, or read the full [How This Work](#How-This-Work) for advanced behavior.
 
