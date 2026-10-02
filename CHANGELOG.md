@@ -2,6 +2,8 @@
 # Changelog
 
 ## [Unreleased]
+
+## [0.3.0] - 2026-10-02
 ### Changed
 - **BREAKING**: `generatePlayReleaseNotes` now writes release notes to the highest priority Gradle Play Publisher source set, one directory per release variant: `src/<variantName>/play/release-notes/<locale>/<track>.txt`. Notes are no longer written to `src/main/play/release-notes/` or `src/<flavor>/play/release-notes/`, which belong to GPP's `bootstrap` task, so the changelog always wins over bootstrapped notes.
 - **BREAKING**: `changelogPublish.playTrack` (single track) has been replaced by `changelogPublish.playTracks` (list). One file is written per entry so the notes are found whichever track is published. Defaults to `["default", "internal", "production"]`; `default.txt` is GPP's universal fallback, so the changelog is picked up even for tracks that are not explicitly configured.
