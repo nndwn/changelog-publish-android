@@ -8,9 +8,17 @@ import org.gradle.api.Action
 import org.gradle.api.DomainObjectCollection
 import org.gradle.api.Plugin
 import org.gradle.api.Project
+import org.gradle.api.provider.MapProperty
 import java.lang.reflect.Proxy
 
 class ChangelogPublishPlugin : Plugin<Project> {
+
+    companion object {
+        private const val TYPE_KOTLIN = "kotlin.jvm.functions.Function1"
+
+        /** Tracks to emit release notes for when `changelogPublish.playTracks` is not configured. */
+        private val DEFAULT_PLAY_TRACKS = listOf("default", "internal", "production")
+    }
     override fun apply(target: Project) {
         val extension = target.extensions.create("changelogPublish", ChangelogPublishExtension::class.java)
 
@@ -22,6 +30,10 @@ class ChangelogPublishPlugin : Plugin<Project> {
 
         val resolvedMetadata = target.provider { AndroidMetadataResolver.resolve(target) }
         val resolvedFlavors = target.provider { resolveProductFlavorNames(target) }
+
+        // Release variants (variantName -> flavorName) discovered from AGP. Populated lazily while
+        // variants are configured below and consumed by `generatePlayReleaseNotes`.
+        val resolvedReleaseVariants = target.objects.mapProperty(String::class.java, String::class.java)
 
         target.tasks.register("generateChangelog", ChangelogPublishTask::class.java) {
             group = "publishing"
@@ -51,7 +63,14 @@ class ChangelogPublishPlugin : Plugin<Project> {
 
             changelogFile.convention(changelogFileProvider)
             defaultLocale.convention(extension.defaultLocale.orElse("en-US"))
-            playTrack.convention(extension.playTrack.orElse("production"))
+            // Collection properties are initialised to an empty collection (never "absent"), so
+            // `orElse` cannot act as a default - map the empty value instead.
+            playTracks.convention(extension.playTracks.map { it.ifEmpty { DEFAULT_PLAY_TRACKS } })
+            playVariants.convention(
+                extension.playVariants.zip(resolvedReleaseVariants) { explicit, resolved ->
+                    explicit.ifEmpty { resolved }
+                }
+            )
             playFlavors.convention(
                 extension.playFlavors.zip(resolvedFlavors) { explicit, resolved ->
                     explicit.ifEmpty { resolved }
@@ -64,14 +83,18 @@ class ChangelogPublishPlugin : Plugin<Project> {
             rootDir.convention(target.layout.projectDirectory)
         }
 
-        configureArtifactRenaming(target, extension)
+        configureArtifactRenaming(target, extension, resolvedReleaseVariants)
     }
 
-    private fun configureArtifactRenaming(project: Project, extension: ChangelogPublishExtension) {
+    private fun configureArtifactRenaming(
+        project: Project,
+        extension: ChangelogPublishExtension,
+        releaseVariants: MapProperty<String, String>,
+    ) {
         project.plugins.withId("com.android.application") {
             // Prefer the modern AGP API; fall back to the legacy variant API for older AGP.
-            if (configureWithAndroidComponents(project, extension)) return@withId
-            configureWithLegacyVariants(project, extension)
+            if (configureWithAndroidComponents(project, extension, releaseVariants)) return@withId
+            configureWithLegacyVariants(project, extension, releaseVariants)
         }
     }
 
@@ -79,7 +102,11 @@ class ChangelogPublishPlugin : Plugin<Project> {
     // Modern AGP API: androidComponents.onVariants (AGP 7+)
     // ---------------------------------------------------------------------------------------------
 
-    private fun configureWithAndroidComponents(project: Project, extension: ChangelogPublishExtension): Boolean {
+    private fun configureWithAndroidComponents(
+        project: Project,
+        extension: ChangelogPublishExtension,
+        releaseVariants: MapProperty<String, String>,
+    ): Boolean {
         val androidComponents = project.extensions.findByName("androidComponents") ?: return false
         return try {
             val selector = invokeMethod(androidComponents, "selector") ?: return false
@@ -91,12 +118,12 @@ class ChangelogPublishPlugin : Plugin<Project> {
             val method = methods.firstOrNull {
                 it.parameterTypes.size == 2 && (
                     Action::class.java.isAssignableFrom(it.parameterTypes[1]) ||
-                    it.parameterTypes[1].name == "kotlin.jvm.functions.Function1"
+                    it.parameterTypes[1].name == TYPE_KOTLIN
                 )
             } ?: methods.firstOrNull {
                 it.parameterTypes.size == 1 && (
                     Action::class.java.isAssignableFrom(it.parameterTypes[0]) ||
-                    it.parameterTypes[0].name == "kotlin.jvm.functions.Function1"
+                    it.parameterTypes[0].name == TYPE_KOTLIN
                 )
             } ?: methods.firstOrNull { it.parameterTypes.size == 2 }
               ?: methods.firstOrNull { it.parameterTypes.size == 1 }
@@ -111,7 +138,7 @@ class ChangelogPublishPlugin : Plugin<Project> {
             }
 
             val callback = createCallback(callbackParamType) { variant ->
-                configureModernVariant(project, extension, variant)
+                configureModernVariant(project, extension, releaseVariants, variant)
             }
 
             if (method.parameterTypes.size == 2) {
@@ -132,7 +159,7 @@ class ChangelogPublishPlugin : Plugin<Project> {
         if (Action::class.java.isAssignableFrom(paramType)) {
             return Action<Any> { block(this) }
         }
-        if (paramType.name == "kotlin.jvm.functions.Function1") {
+        if (paramType.name == TYPE_KOTLIN) {
             return { arg: Any -> block(arg) }
         }
         if (paramType.isInterface) {
@@ -146,13 +173,19 @@ class ChangelogPublishPlugin : Plugin<Project> {
         return Action<Any> { block(this) }
     }
 
-    private fun configureModernVariant(project: Project, extension: ChangelogPublishExtension, variant: Any) {
+    private fun configureModernVariant(
+        project: Project,
+        extension: ChangelogPublishExtension,
+        releaseVariants: MapProperty<String, String>,
+        variant: Any,
+    ) {
         try {
             val buildType = invokeString(variant, "getBuildType") ?: "release"
             if (!buildType.equals("release", ignoreCase = true)) return
 
             val rawVariantName = invokeString(variant, "getName") ?: buildType
             val flavorName = invokeString(variant, "getFlavorName")?.takeIf { it.isNotBlank() }
+            releaseVariants.put(rawVariantName, flavorName.orEmpty())
             val mergedFlavor = invokeMethod(variant, "getMergedFlavor")
             val versionNameSuffix = mergedFlavor?.let { invokeString(it, "getVersionNameSuffix") }
                 ?.takeIf { it.isNotBlank() }
@@ -198,7 +231,11 @@ class ChangelogPublishPlugin : Plugin<Project> {
     // ---------------------------------------------------------------------------------------------
 
     @Suppress("UNCHECKED_CAST")
-    private fun configureWithLegacyVariants(project: Project, extension: ChangelogPublishExtension) {
+    private fun configureWithLegacyVariants(
+        project: Project,
+        extension: ChangelogPublishExtension,
+        releaseVariants: MapProperty<String, String>,
+    ) {
         val androidExt = project.extensions.findByName("android") ?: return
         val variants = try {
             androidExt.javaClass.getMethod("getApplicationVariants").invoke(androidExt)
@@ -208,10 +245,15 @@ class ChangelogPublishPlugin : Plugin<Project> {
             null
         } ?: return
 
-        variants.all { configureLegacyVariant(project, extension, this) }
+        variants.all { configureLegacyVariant(project, extension, releaseVariants, this) }
     }
 
-    private fun configureLegacyVariant(project: Project, extension: ChangelogPublishExtension, variant: Any) {
+    private fun configureLegacyVariant(
+        project: Project,
+        extension: ChangelogPublishExtension,
+        releaseVariants: MapProperty<String, String>,
+        variant: Any,
+    ) {
         try {
             val buildTypeObj = invokeMethod(variant, "getBuildType")
             val buildType = buildTypeObj?.let { invokeString(it, "getName") } ?: "release"
@@ -219,6 +261,7 @@ class ChangelogPublishPlugin : Plugin<Project> {
 
             val rawVariantName = invokeString(variant, "getName") ?: buildType
             val flavorName = invokeString(variant, "getFlavorName")?.takeIf { it.isNotBlank() }
+            releaseVariants.put(rawVariantName, flavorName.orEmpty())
             val mergedFlavor = invokeMethod(variant, "getMergedFlavor")
             val versionNameSuffix = mergedFlavor?.let { invokeString(it, "getVersionNameSuffix") }
                 ?.takeIf { it.isNotBlank() }

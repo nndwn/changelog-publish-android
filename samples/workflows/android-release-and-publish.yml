@@ -33,10 +33,39 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x gradlew
 
+      # Secret Variable:
+      # - PLAY_SERVICE_ACCOUNT_BASE64: Base64-encoded string of the Google Play Service Account JSON credentials file.
       - name: Setup Google Play Service Account Credentials
         run: |
           echo "${{ secrets.PLAY_SERVICE_ACCOUNT_BASE64 }}" | base64 -d > play-service-account.json
           echo "PLAY_SERVICE_ACCOUNT_FILE=$(pwd)/play-service-account.json" >> $GITHUB_ENV
+
+      # Secret Variables:
+      # - KEYSTORE_BASE64: Release Keystore file (.jks) encoded as Base64 string.
+      # - ALIAS: Key alias stored within the Keystore.
+      # - KEY_STORE_PASSWORD: Password for the Keystore.
+      # - KEY_PASSWORD: Password for the specific Key Alias.
+      #
+      # IMPORTANT: Signing is done by Gradle itself so that BOTH the APKs and the AAB are signed
+      # with the release key (Google Play rejects a debug-signed App Bundle).
+      # `signingConfigs.release` in app/build.gradle.kts reads `local.properties`, which is
+      # git-ignored, so it is never picked up by the create-pull-request step below.
+      - name: Setup Release Signing (Keystore & local.properties)
+        run: |
+          if [ -z "${{ secrets.KEYSTORE_BASE64 }}" ]; then
+            echo "::error::Secret KEYSTORE_BASE64 is empty; release artifacts cannot be signed."
+            exit 1
+          fi
+
+          KEYSTORE_PATH="$RUNNER_TEMP/release.keystore"
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > "$KEYSTORE_PATH"
+
+          {
+            echo "KEY_FILE=$KEYSTORE_PATH"
+            echo "KEYSTORE_PASSWORD=${{ secrets.KEY_STORE_PASSWORD }}"
+            echo "KEY_ALIAS=${{ secrets.ALIAS }}"
+            echo "KEY_PASSWORD=${{ secrets.KEY_PASSWORD }}"
+          } >> local.properties
 
       - name: Generate Google Play Release Notes
         run: ./gradlew generatePlayReleaseNotes --stacktrace
@@ -44,30 +73,8 @@ jobs:
       - name: Build Release App Bundles & APKs
         run: ./gradlew bundleFossRelease bundlePlaystoreRelease assembleFossRelease assemblePlaystoreRelease --stacktrace
 
-      - name: Sign Foss Release APK
-        uses: r0adkll/sign-android-release@v1
-        id: sign_foss_app
-        with:
-          releaseDirectory: app/build/outputs/apk/foss/release
-          signingKeyBase64: ${{ secrets.KEYSTORE_BASE64 }}
-          alias: ${{ secrets.ALIAS }}
-          keyStorePassword: ${{ secrets.KEY_STORE_PASSWORD }}
-          keyPassword: ${{ secrets.KEY_PASSWORD }}
-        env:
-          BUILD_TOOLS_VERSION: "34.0.0"
-
-      - name: Sign Playstore Release APK
-        uses: r0adkll/sign-android-release@v1
-        id: sign_playstore_app
-        with:
-          releaseDirectory: app/build/outputs/apk/playstore/release
-          signingKeyBase64: ${{ secrets.KEYSTORE_BASE64 }}
-          alias: ${{ secrets.ALIAS }}
-          keyStorePassword: ${{ secrets.KEY_STORE_PASSWORD }}
-          keyPassword: ${{ secrets.KEY_PASSWORD }}
-        env:
-          BUILD_TOOLS_VERSION: "34.0.0"
-
+      # Environment Variable:
+      # - PLAY_SERVICE_ACCOUNT_FILE: Path to the decoded Google Play Service Account JSON credentials.
       - name: Publish Playstore Flavor to Google Play Store
         run: ./gradlew publishPlaystoreReleaseBundle --stacktrace
         env:
@@ -76,15 +83,19 @@ jobs:
       - name: Promote Unreleased Changelog
         run: ./gradlew releaseChangelog --stacktrace
 
+      # Upload Files & Tokens:
+      # - files: Gradle writes flavored artifacts into flavor-specific directories
+      #   (`apk/<flavor>/<buildType>/` and `bundle/<flavor><BuildType>/`), and the
+      #   changelog-publish plugin RENAMES every artifact, so globs are used instead of exact names.
+      # - GITHUB_TOKEN: Automatic authentication token provided by GitHub Actions.
       - name: Upload Signed APKs & Bundles to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.event.release.tag_name }}
           files: |
-            ${{ steps.sign_foss_app.outputs.signedReleaseFile }}
-            ${{ steps.sign_playstore_app.outputs.signedReleaseFile }}
-            app/build/outputs/bundle/fossRelease/app-foss-release.aab
-            app/build/outputs/bundle/playstoreRelease/app-playstore-release.aab
+            app/build/outputs/apk/foss/release/*.apk
+            app/build/outputs/apk/playstore/release/*.apk
+            app/build/outputs/bundle/playstoreRelease/*.aab
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

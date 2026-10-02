@@ -6,6 +6,7 @@ import org.gradle.api.DefaultTask
 import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.provider.ListProperty
+import org.gradle.api.provider.MapProperty
 import org.gradle.api.provider.Property
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.InputFile
@@ -28,7 +29,10 @@ abstract class GeneratePlayReleaseNotesTask : DefaultTask() {
     abstract val defaultLocale: Property<String>
 
     @get:Input
-    abstract val playTrack: Property<String>
+    abstract val playTracks: ListProperty<String>
+
+    @get:Input
+    abstract val playVariants: MapProperty<String, String>
 
     @get:Input
     @get:Optional
@@ -47,11 +51,25 @@ abstract class GeneratePlayReleaseNotesTask : DefaultTask() {
     fun execute() {
         val file = changelogFile.get().asFile
         val defaultLoc = defaultLocale.getOrElse("en-US")
-        val track = playTrack.getOrElse("production")
+        val tracks = playTracks.getOrElse(emptyList())
+        val variants = playVariants.getOrElse(emptyMap())
         val maxLength = maxPlayNotesLength.getOrElse(500)
         val knownFlavors = playFlavors.getOrElse(emptyList()).toSet()
         val sourceSetsRoot = playSourceSetsRoot.get().asFile
         val rootDirectory = rootDir.orNull?.asFile
+
+        if (variants.isEmpty()) {
+            logger.warn(
+                "[changelog-publish] No release variants were resolved; skipping Google Play release notes " +
+                    "generation. Configure 'changelogPublish.playVariants' to generate them explicitly."
+            )
+            return
+        }
+
+        if (tracks.isEmpty()) {
+            logger.warn("[changelog-publish] 'changelogPublish.playTracks' is empty; nothing to generate.")
+            return
+        }
 
         val parsed = ChangelogParser.parsePlayReleaseNotes(
             file = file,
@@ -65,24 +83,17 @@ abstract class GeneratePlayReleaseNotesTask : DefaultTask() {
 
         val generatedFiles = mutableListOf<File>()
 
-        if (parsed.shared.isNotEmpty()) {
+        for ((variant, flavor) in variants) {
+            // `parsed.flavors` already contains the shared notes merged with that flavor's notes.
+            val notes = parsed.flavors[flavor] ?: parsed.shared
+            if (notes.isEmpty()) continue
+
             generatedFiles += PlayReleaseNotesGenerator.generate(
-                localizedNotes = parsed.shared,
-                targetDir = File(sourceSetsRoot, "main/play/release-notes"),
-                trackFileName = "$track.txt",
+                localizedNotes = notes,
+                targetDir = File(sourceSetsRoot, "$variant/play/release-notes"),
+                playTracks = tracks,
                 maxCharacterLimit = maxLength,
             )
-        }
-
-        for ((flavor, notes) in parsed.flavors) {
-            if (notes.isNotEmpty()) {
-                generatedFiles += PlayReleaseNotesGenerator.generate(
-                    localizedNotes = notes,
-                    targetDir = File(sourceSetsRoot, "$flavor/play/release-notes"),
-                    trackFileName = "$track.txt",
-                    maxCharacterLimit = maxLength,
-                )
-            }
         }
 
         logger.lifecycle("========================================")

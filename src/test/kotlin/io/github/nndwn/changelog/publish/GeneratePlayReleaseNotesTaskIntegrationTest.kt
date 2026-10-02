@@ -3,6 +3,7 @@ package io.github.nndwn.changelog.publish
 import org.gradle.testkit.runner.GradleRunner
 import org.gradle.testkit.runner.TaskOutcome
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -12,6 +13,8 @@ import java.io.File
 /**
  * End-to-end integration tests that run the real `generatePlayReleaseNotes` task through Gradle
  * TestKit. These cover the task wiring, parser, generator, and directory layout together.
+ *
+ * The fixture project has no Android plugin, so `playVariants` is configured explicitly.
  */
 class GeneratePlayReleaseNotesTaskIntegrationTest {
 
@@ -19,7 +22,7 @@ class GeneratePlayReleaseNotesTaskIntegrationTest {
     val tempFolder = TemporaryFolder()
 
     @Test
-    fun generatesSharedAndFlavorReleaseNotes() {
+    fun generatesPerVariantReleaseNotesForEveryConfiguredTrack() {
         val projectDir = tempFolder.newFolder("fixture")
         writeFixture(
             projectDir = projectDir,
@@ -41,17 +44,21 @@ class GeneratePlayReleaseNotesTaskIntegrationTest {
 
         assertEquals(TaskOutcome.SUCCESS, result.task(":generatePlayReleaseNotes")?.outcome)
 
-        val mainFile = projectDir.resolve("src/main/play/release-notes/en-US/production.txt")
-        assertTrue(mainFile.exists())
-        assertEquals("- Global improvement", mainFile.readText())
+        // Notes are written to the highest priority GPP source set: src/<variantName>/play/...
+        for (track in listOf("default.txt", "internal.txt", "production.txt")) {
+            val playstoreFile = projectDir.resolve("src/playstoreRelease/play/release-notes/en-US/$track")
+            assertTrue("Missing $playstoreFile", playstoreFile.exists())
+            assertEquals("- Global improvement\n- Play store specific", playstoreFile.readText())
 
-        val playstoreFile = projectDir.resolve("src/playstore/play/release-notes/en-US/production.txt")
-        assertTrue(playstoreFile.exists())
-        assertEquals("- Global improvement\n- Play store specific", playstoreFile.readText())
+            val fossFile = projectDir.resolve("src/fossRelease/play/release-notes/en-US/$track")
+            assertTrue("Missing $fossFile", fossFile.exists())
+            assertEquals("- Global improvement\n- Foss specific", fossFile.readText())
+        }
 
-        val fossFile = projectDir.resolve("src/foss/play/release-notes/en-US/production.txt")
-        assertTrue(fossFile.exists())
-        assertEquals("- Global improvement\n- Foss specific", fossFile.readText())
+        // The old src/main and src/<flavor> locations must no longer be used.
+        assertFalse(projectDir.resolve("src/main/play/release-notes/en-US/production.txt").exists())
+        assertFalse(projectDir.resolve("src/playstore/play/release-notes/en-US/production.txt").exists())
+        assertFalse(projectDir.resolve("src/foss/play/release-notes/en-US/production.txt").exists())
     }
 
     @Test
@@ -77,13 +84,13 @@ class GeneratePlayReleaseNotesTaskIntegrationTest {
 
         assertEquals(TaskOutcome.SUCCESS, result.task(":generatePlayReleaseNotes")?.outcome)
 
-        val mainFile = projectDir.resolve("src/main/play/release-notes/en-US/production.txt")
-        assertTrue(mainFile.exists())
-        assertEquals("Added\n  - sample1\n  - sample2", mainFile.readText())
-
-        val playstoreFile = projectDir.resolve("src/playstore/play/release-notes/en-US/production.txt")
+        val playstoreFile = projectDir.resolve("src/playstoreRelease/play/release-notes/en-US/default.txt")
         assertTrue(playstoreFile.exists())
         assertEquals("Added\n  - sample1\n  - sample2\n- Play store specific", playstoreFile.readText())
+
+        val fossFile = projectDir.resolve("src/fossRelease/play/release-notes/en-US/default.txt")
+        assertTrue(fossFile.exists())
+        assertEquals("Added\n  - sample1\n  - sample2", fossFile.readText())
 
         assertTrue(result.output.contains("does not match any product flavor"))
     }
@@ -97,8 +104,13 @@ class GeneratePlayReleaseNotesTaskIntegrationTest {
             }
 
             configure<io.github.nndwn.changelog.publish.ChangelogPublishExtension> {
-                playTrack.set("production")
                 playFlavors.set(listOf("playstore", "foss"))
+                playVariants.set(
+                    mapOf(
+                        "playstoreRelease" to "playstore",
+                        "fossRelease" to "foss",
+                    )
+                )
             }
             """.trimIndent()
         )

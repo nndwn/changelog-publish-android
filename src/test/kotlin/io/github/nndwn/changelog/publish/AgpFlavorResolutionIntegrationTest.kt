@@ -3,6 +3,7 @@ package io.github.nndwn.changelog.publish
 import org.gradle.testkit.runner.GradleRunner
 import org.gradle.testkit.runner.TaskOutcome
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
 import org.junit.Rule
@@ -88,17 +89,23 @@ class AgpFlavorResolutionIntegrationTest {
 
         assertEquals(TaskOutcome.SUCCESS, result.task(":generatePlayReleaseNotes")?.outcome)
 
-        val mainFile = projectDir.resolve("src/main/play/release-notes/en-US/production.txt")
-        assertTrue(mainFile.exists())
-        assertEquals("- Global improvement", mainFile.readText())
+        // Notes are written to the highest priority GPP source set: src/<variantName>/play/...
+        // One file per configured track, so any published track finds the changelog notes.
+        for (track in listOf("default.txt", "internal.txt", "production.txt")) {
+            assertTrue(projectDir.resolve("src/playstoreRelease/play/release-notes/en-US/$track").exists())
+            assertTrue(projectDir.resolve("src/fossRelease/play/release-notes/en-US/$track").exists())
+        }
 
-        val playstoreFile = projectDir.resolve("src/playstore/play/release-notes/en-US/production.txt")
-        assertTrue(playstoreFile.exists())
+        val playstoreFile = projectDir.resolve("src/playstoreRelease/play/release-notes/en-US/default.txt")
         assertEquals("- Global improvement\n- Play store specific", playstoreFile.readText())
 
-        val fossFile = projectDir.resolve("src/foss/play/release-notes/en-US/production.txt")
-        assertTrue(fossFile.exists())
+        val fossFile = projectDir.resolve("src/fossRelease/play/release-notes/en-US/default.txt")
         assertEquals("- Global improvement\n- Foss specific", fossFile.readText())
+
+        // The old src/main and src/<flavor> locations must no longer be used.
+        assertFalse(projectDir.resolve("src/main/play/release-notes/en-US/production.txt").exists())
+        assertFalse(projectDir.resolve("src/playstore/play/release-notes/en-US/production.txt").exists())
+        assertFalse(projectDir.resolve("src/foss/play/release-notes/en-US/production.txt").exists())
 
         val variantResult = GradleRunner.create()
             .withProjectDir(projectDir)

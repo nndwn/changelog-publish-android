@@ -73,7 +73,7 @@ Minimum environment required to consume this plugin in an Android project:
 
 ---
 
-## Specification & Contract Rules
+## How This Work
 
 ### 1. Android Metadata & Variant Support
 The plugin resolves application metadata based on the Android project configuration:
@@ -132,9 +132,9 @@ The `CHANGELOG.md` file in the root directory adheres strictly to the [Keep a Ch
   * Prepends a fresh, empty `## [Unreleased]` section at the top for future development.
 * **`generatePlayReleaseNotes` Task**:
   * Extracts localized release notes from `CHANGELOG.md` (`## [Unreleased]`) and writes text files formatted for [Triple-T Gradle Play Publisher (GPP)](https://github.com/Triple-T/gradle-play-publisher#release-notes).
-  * **Per-source-set output**: global notes are written to `src/main/play/release-notes/<locale>/<track>.txt`; each flavor section is written to `src/<flavor>/play/release-notes/<locale>/<track>.txt`.
-  * **Track-aware output**: The output file name follows the GPP track (`production` by default). Customize it via `changelogPublish.playTrack` (e.g., `beta`, `alpha`, `internal`).
-  * **Flavor resolution**: `### [X]` is a flavor only if it matches a real product flavor (or `changelogPublish.playFlavors`); otherwise it is a category heading.
+  * **Per-variant output**: notes are written to `src/<variantName>/play/release-notes/<locale>/<track>.txt` for every **release** variant (e.g. `src/playstoreRelease/play/release-notes/en-US/default.txt`). That is GPP's highest priority source set, so the changelog **overrides** the notes GPP's `bootstrap` task downloads into `src/<flavor>/play/release-notes/`.
+  * **Multi-track output**: one file is written per entry of `changelogPublish.playTracks` (default `["default", "internal", "production"]`), so the notes are found whichever track is published. `default.txt` is GPP's universal fallback, `<track>.txt` wins for that specific track. Stale track files are removed automatically.
+  * **Flavor resolution**: `### [X]` is a flavor only if it matches a real product flavor (or `changelogPublish.playFlavors`); otherwise it is a category heading. Each variant file contains the global notes plus that variant's flavor notes.
   * **Strict 500-Character Validation**: Automatically verifies that each locale's release notes do not exceed [Google Play Console's 500-character limit](https://support.google.com/googleplay/android-developer/answer/9866151). Throws a `GradleException` if any locale exceeds 500 characters.
 
 ---
@@ -262,13 +262,14 @@ Execute this task when finalizing a new release version. It promotes `## [Unrele
 ```
 
 #### C. Generate Google Play Store Release Notes (GPP)
-Extracts localized release notes under `## [Unreleased]`, validates length (<= 500 characters), and writes GPP-compatible files. By default, global notes go to `src/main/play/release-notes/` and each flavor section goes to `src/<flavor>/play/release-notes/`.
+Extracts localized release notes under `## [Unreleased]`, validates length (<= 500 characters), and writes GPP-compatible files into `src/<variantName>/play/release-notes/<locale>/` for every release variant - one file per configured track. Nothing is written to `src/main` or `src/<flavor>`, which are owned by GPP's `bootstrap` task.
 
 ```kotlin
 //Optional
 changelogPublish {
-    playTrack.set("production")                    // -> <locale>/production.txt (default)
-    playFlavors.set(listOf("foss", "playstore"))    // optional: explicit flavor list (else read from android.productFlavors)
+    playTracks.set(listOf("default", "internal", "production"))  // optional: one <locale>/<track>.txt per entry
+    playVariants.set(mapOf("playstoreRelease" to "playstore"))    // optional: override AGP-resolved release variants
+    playFlavors.set(listOf("foss", "playstore"))                  // optional: explicit flavor list (else read from android.productFlavors)
     // playSourceSetsRoot.set(layout.projectDirectory.dir("src")) // optional: override source-set root
 }
 ```

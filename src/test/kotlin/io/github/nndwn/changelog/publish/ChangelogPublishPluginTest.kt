@@ -44,7 +44,8 @@ class ChangelogPublishPluginTest {
         assertEquals("1.0.0", releaseTask.versionName.get())
 
         val playTask = project.tasks.findByName("generatePlayReleaseNotes") as GeneratePlayReleaseNotesTask
-        assertEquals("production", playTask.playTrack.get())
+        assertEquals(listOf("default", "internal", "production"), playTask.playTracks.get())
+        assertTrue(playTask.playVariants.get().isEmpty())
         assertEquals("src", playTask.playSourceSetsRoot.get().asFile.name)
         assertTrue(playTask.playFlavors.get().isEmpty())
     }

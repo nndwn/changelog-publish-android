@@ -5,25 +5,41 @@ import java.io.File
 
 /**
  * Generates release notes text files structured for Triple-T Gradle Play Publisher (GPP).
- * Output path: `<targetDir>/<locale>/production.txt`
+ *
+ * Output path: `<targetDir>/<locale>/<track>.txt`
  */
 object PlayReleaseNotesGenerator {
 
     private const val PLAY_STORE_LIMIT_LINK = "https://support.google.com/googleplay/android-developer/answer/9866151"
 
+    private const val TRACK_FILE_EXTENSION = ".txt"
+
     /**
-     * Writes localized release notes to directory structure `<targetDir>/<locale>/<trackFileName>`.
+     * Writes localized release notes to directory structure `<targetDir>/<locale>/<track>.txt`.
+     *
+     * One file is written per entry of [playTracks] so that GPP finds the notes whichever track it
+     * publishes to (`<track>.txt` first, `default.txt` as the universal fallback). Any file inside a
+     * locale directory that does not belong to a configured track is removed, so a track that is no
+     * longer configured can never be picked up.
+     *
      * Validates that each locale text does not exceed [maxCharacterLimit] (default: 500).
      *
+     * @param playTracks GPP track names, e.g. `["default", "internal", "production"]`.
+     * @return every file that was written.
      * @throws GradleException if any locale release notes exceed [maxCharacterLimit].
      */
     fun generate(
         localizedNotes: Map<String, String>,
         targetDir: File,
-        trackFileName: String = "production.txt",
+        playTracks: List<String>,
         maxCharacterLimit: Int = 500,
     ): List<File> {
         val generatedFiles = mutableListOf<File>()
+        if (localizedNotes.isEmpty() || playTracks.isEmpty()) return generatedFiles
+
+        val trackFileNames = playTracks.map { track ->
+            if (track.endsWith(TRACK_FILE_EXTENSION)) track else "$track$TRACK_FILE_EXTENSION"
+        }
 
         // First pass: Validate length for all locales
         for ((locale, notes) in localizedNotes) {
@@ -54,9 +70,15 @@ object PlayReleaseNotesGenerator {
                 localeDir.mkdirs()
             }
 
-            val outputFile = File(localeDir, trackFileName)
-            outputFile.writeText(notes)
-            generatedFiles.add(outputFile)
+            localeDir.listFiles()
+                ?.filter { it.isFile && it.name !in trackFileNames }
+                ?.forEach { it.delete() }
+
+            for (trackFileName in trackFileNames) {
+                val outputFile = File(localeDir, trackFileName)
+                outputFile.writeText(notes)
+                generatedFiles.add(outputFile)
+            }
         }
 
         return generatedFiles
