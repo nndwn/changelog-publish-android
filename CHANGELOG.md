@@ -2,14 +2,14 @@
 # Changelog
 
 ## [Unreleased]
+### Changed
+- `generateChangelog` (and the per-variant `generateChangelog<VariantName>` tasks) no longer validate the changelog. A missing changelog file, a missing `## [Unreleased]` section, or an empty section now yields a payload with an empty `"releaseNotes"` field plus a warning, instead of a `GradleException`. This keeps CI green on a push to `main` that arrives right after `releaseChangelog` emptied `## [Unreleased]`. The release tasks (`releaseChangelog`, `generatePlayReleaseNotes`) keep their strict fail-fast behaviour.
+
 
 ## [0.3.1] - 2026-10-02
 ### Added
 - `generatePlayReleaseNotes` now also refreshes the `default.txt` changelog of every **flavor** source set that already ships Triple-T metadata (`src/<flavor>/play/release-notes/<locale>/default.txt`). That is the layout F-Droid reads from `<module>/src/<buildFlavor>/play/`, and it lives in the app's VCS tree instead of a build output directory, so it has to be updated in place. The pass is strictly non-destructive: `default.txt` is the only file written, and no file or locale directory is ever removed, because everything inside that directory is hand-authored and committed. Flavors that do not already have a `play/release-notes/` directory are left untouched.
 - Documented the flavor-level Triple-T output in the `generatePlayReleaseNotes` task contract in `README.md`.
-
-### Changed
-- `generateChangelog` (and the per-variant `generateChangelog<VariantName>` tasks) no longer validate the changelog. A missing changelog file, a missing `## [Unreleased]` section, or an empty section now yields a payload with an empty `"releaseNotes"` field plus a warning, instead of a `GradleException`. This keeps CI green on a push to `main` that arrives right after `releaseChangelog` emptied `## [Unreleased]`. The release tasks (`releaseChangelog`, `generatePlayReleaseNotes`) keep their strict fail-fast behaviour.
 
 ## [0.3.0] - 2026-10-02
 ### Changed
