@@ -112,8 +112,9 @@ The `CHANGELOG.md` file in the root directory adheres strictly to the [Keep a Ch
    * Special characters such as double quotes (`"`), newlines (`\n`), and backslashes (`\`) are safely escaped in the generated JSON payload.
 7. **Version Normalization**:
    * When checking for duplicate versions, an optional leading `v` is ignored (e.g., `## [v1.0.0]` is detected as version `1.0.0`).
-8. **Strict Mode (Fail-Fast Exception)**:
-   * **No silent fallbacks**. If the changelog file is missing, or if the `## [Unreleased]` section is missing or empty, the plugin **throws a `GradleException` (build failure)** with actionable error instructions.
+8. **Validation Policies (Lenient payload tasks vs. strict release tasks)**:
+   * **Payload tasks are lenient** (`generateChangelog` and the per-variant `generateChangelog<VariantName>` tasks): they only *report* the changelog, so a missing file, a missing `## [Unreleased]` section, or an empty section is **not** a failure. The JSON payload is still emitted - with an empty `"releaseNotes"` field (a warning is logged) - so CI stays green right after a release emptied `## [Unreleased]`.
+   * **Release tasks stay strict** (`releaseChangelog`, `generatePlayReleaseNotes`): they still **throw a `GradleException` (build failure)** with actionable error instructions when there is nothing to release, so a release can never be finalized or published without notes.
 
 > [!IMPORTANT]
 > **Google Play Store (GPP) 500-Character Limit Rule**:
@@ -125,9 +126,10 @@ The `CHANGELOG.md` file in the root directory adheres strictly to the [Keep a Ch
 
 * **`generateChangelog` Task**:
   * Global Gradle task that extracts metadata, parses `CHANGELOG.md`, logs the JSON changelog payload to console, and automatically saves it to `build/reports/changelog/changelog.json` (or `app/build/reports/changelog/changelog.json` in `:app`) for direct consumption by CI/CD tools (e.g., `jq`, GitHub Actions).
+  * **An empty `## [Unreleased]` is not a failure**: the task never throws for a missing changelog file, a missing `## [Unreleased]` section, or an empty section. It writes the payload with an empty `"releaseNotes"` field and logs a warning, leaving validation to the release tasks.
 * **Per-Variant `generateChangelog<VariantName>` Tasks**:
   * Automatically registered for Android application modules with product flavors (e.g., `generateChangelogPlaystoreRelease`, `generateChangelogFossRelease`, `generateChangelogPlaystore`, `generateChangelogFoss`).
-  * Automatically filters `CHANGELOG.md` for flavor-specific release notes (`### [Flavor]`), appends flavor `versionNameSuffix` (if defined), includes `"flavorName"` and `"variantName"` fields in the `metadata` JSON payload, and writes the JSON payload file.
+  * Automatically filters `CHANGELOG.md` for flavor-specific release notes (`### [Flavor]`), appends flavor `versionNameSuffix` (if defined), includes `"flavorName"` and `"variantName"` fields in the `metadata` JSON payload, and writes the JSON payload file. Like the global task, these are **lenient**: an empty `## [Unreleased]` produces an empty `"releaseNotes"` field instead of a failure.
 * **`releaseChangelog` Task**:
   * Single root project task executed during release finalization.
   * **Strict Release Validation**:

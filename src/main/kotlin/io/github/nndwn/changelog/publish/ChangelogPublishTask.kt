@@ -5,7 +5,6 @@ import io.github.nndwn.changelog.publish.data.ChangelogParser
 import io.github.nndwn.changelog.publish.data.CiPublisher
 import io.github.nndwn.changelog.publish.domain.model.AndroidMetadata
 import org.gradle.api.DefaultTask
-import org.gradle.api.GradleException
 import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.provider.Property
 import org.gradle.api.tasks.Input
@@ -64,9 +63,25 @@ abstract class ChangelogPublishTask : DefaultTask() {
         val notes = if (releaseNotes.isPresent && releaseNotes.get().isNotBlank()) {
             releaseNotes.get()
         } else {
+            // This task only *reports* the changelog, it does not validate it. A missing file, a
+            // missing `## [Unreleased]` section or an empty section is a valid state (typical right
+            // after `releaseChangelog` emptied it), so the payload is still emitted - with an empty
+            // `releaseNotes` field - instead of failing the build. Strictness belongs to the release
+            // tasks (`releaseChangelog`, `generatePlayReleaseNotes`).
             val file = changelogFile.orNull?.asFile
-                ?: throw GradleException("Changelog file is not configured or does not exist.")
-            ChangelogParser.parseUnreleasedNotes(file, flavorName = flavorName.orNull)
+            if (file == null) {
+                logger.warn("[changelog-publish] No changelog file is configured; emitting an empty 'releaseNotes' field.")
+                ""
+            } else {
+                ChangelogParser.unreleasedNotesOrEmpty(file, flavorName = flavorName.orNull).also { parsed ->
+                    if (parsed.isBlank()) {
+                        logger.warn(
+                            "[changelog-publish] '## [Unreleased]' in ${file.name} has no release notes; " +
+                                "emitting an empty 'releaseNotes' field."
+                        )
+                    }
+                }
+            }
         }
 
         val payload = ChangelogManager.createPayload(

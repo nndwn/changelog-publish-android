@@ -167,6 +167,91 @@ class ChangelogParserTest {
     }
 
     @Test
+    fun unreleasedNotesOrEmpty_returnsNotesWhenPresent() {
+        val file = tempFolder.newFile("CHANGELOG.md")
+        file.writeText(
+            """
+            # Changelog
+
+            ## [Unreleased]
+            - Fixed navigation bug
+
+            ## [1.0.0] - 2026-03-01
+            - Initial release
+            """.trimIndent()
+        )
+
+        assertEquals("- Fixed navigation bug", ChangelogParser.unreleasedNotesOrEmpty(file))
+        assertTrue(ChangelogParser.hasUnreleasedNotes(file))
+    }
+
+    @Test
+    fun unreleasedNotesOrEmpty_returnsEmpty_whenUnreleasedIsEmpty() {
+        val file = tempFolder.newFile("CHANGELOG.md")
+        file.writeText(
+            """
+            # Changelog
+
+            ## [Unreleased]
+
+            ## [1.0.0] - 2026-03-01
+            - Initial release
+            """.trimIndent()
+        )
+
+        assertEquals("", ChangelogParser.unreleasedNotesOrEmpty(file))
+        assertFalse(ChangelogParser.hasUnreleasedNotes(file))
+    }
+
+    @Test
+    fun unreleasedNotesOrEmpty_returnsEmpty_whenUnreleasedSectionMissing() {
+        val file = tempFolder.newFile("CHANGELOG.md")
+        file.writeText(
+            """
+            # Changelog
+
+            ## [1.0.0] - 2026-03-01
+            - Initial release
+            """.trimIndent()
+        )
+
+        assertEquals("", ChangelogParser.unreleasedNotesOrEmpty(file))
+        assertFalse(ChangelogParser.hasUnreleasedNotes(file))
+    }
+
+    @Test
+    fun unreleasedNotesOrEmpty_returnsEmpty_whenFileDoesNotExist() {
+        val nonExistentFile = File(tempFolder.root, "MISSING_CHANGELOG.md")
+
+        assertEquals("", ChangelogParser.unreleasedNotesOrEmpty(nonExistentFile))
+        assertFalse(ChangelogParser.hasUnreleasedNotes(nonExistentFile))
+    }
+
+    @Test
+    fun unreleasedNotesOrEmpty_filtersByFlavor() {
+        val file = tempFolder.newFile("CHANGELOG.md")
+        file.writeText(
+            """
+            # Changelog
+
+            ## [Unreleased]
+            - General bug fix
+
+            ### [FOSS]
+            - Added JSON exporter
+
+            ### [Playstore]
+            - Integrated Billing API
+            """.trimIndent()
+        )
+
+        val fossNotes = ChangelogParser.unreleasedNotesOrEmpty(file, "foss")
+        assertTrue(fossNotes.contains("- General bug fix"))
+        assertTrue(fossNotes.contains("- Added JSON exporter"))
+        assertFalse(fossNotes.contains("Integrated Billing API"))
+    }
+
+    @Test
     fun hasVersion_returnsTrue_whenVersionExists() {
         val file = tempFolder.newFile("CHANGELOG.md")
         file.writeText(

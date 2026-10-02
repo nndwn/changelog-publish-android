@@ -52,6 +52,9 @@ object ChangelogParser {
     /**
      * Parses the release notes from the first `## [Unreleased]` section in CHANGELOG.md.
      * Throws [GradleException] if the file does not exist, or if `## [Unreleased]` is missing or empty.
+     *
+     * This is the *strict* variant, used by the release tasks. For a non-throwing read (payload
+     * tasks, where "no pending notes" is a valid state) use [unreleasedNotesOrEmpty].
      */
     fun parseUnreleasedNotes(file: File, flavorName: String? = null): String {
         val unreleasedLines = readUnreleasedLines(file)
@@ -63,6 +66,27 @@ object ChangelogParser {
 
         return parsedNotes
     }
+
+    /**
+     * Reads the release notes from the first `## [Unreleased]` section **without ever failing**.
+     *
+     * Returns an empty string when the changelog file does not exist, when `## [Unreleased]` is
+     * missing, or when the section holds no notes for [flavorName]. "No pending notes" is a valid
+     * state for the payload tasks (`generateChangelog`), which must keep producing a JSON payload in
+     * CI even right after a release has been promoted. Use [parseUnreleasedNotes] instead when an
+     * empty section should fail the build (release finalization).
+     */
+    fun unreleasedNotesOrEmpty(file: File, flavorName: String? = null): String {
+        val unreleasedLines = readUnreleasedLinesOrNull(file) ?: return ""
+        return filterNotesByFlavor(unreleasedLines, flavorName)
+    }
+
+    /**
+     * Whether `## [Unreleased]` currently holds any release notes for [flavorName].
+     * Never throws: a missing file or a missing section is reported as `false`.
+     */
+    fun hasUnreleasedNotes(file: File, flavorName: String? = null): Boolean =
+        unreleasedNotesOrEmpty(file, flavorName).isNotBlank()
 
     /**
      * Parses release notes into a map of locale to release notes text.
@@ -230,16 +254,29 @@ object ChangelogParser {
         file.writeText(updatedContent)
     }
 
+    /**
+     * Strict variant of [readUnreleasedLinesOrNull]: fails the build when the file or the
+     * `## [Unreleased]` section is missing.
+     */
     private fun readUnreleasedLines(file: File): List<String> {
         if (!file.exists()) {
             throw GradleException("Changelog file not found at ${file.absolutePath}. Please create a CHANGELOG.md file at the root of your project.")
         }
 
+        return readUnreleasedLinesOrNull(file)
+            ?: throw GradleException("Section '## [Unreleased]' was not found in ${file.name}. Please add a '## [Unreleased]' section at the top of your changelog.")
+    }
+
+    /**
+     * Non-throwing variant: returns `null` when the file does not exist or `## [Unreleased]` is
+     * absent, so callers that treat "no notes" as a valid state stay non-fatal.
+     */
+    private fun readUnreleasedLinesOrNull(file: File): List<String>? {
+        if (!file.exists()) return null
+
         val lines = file.readLines()
         val start = lines.indexOfFirst { UNRELEASED_HEADER_REGEX.containsMatchIn(it.trim()) }
-        if (start == -1) {
-            throw GradleException("Section '## [Unreleased]' was not found in ${file.name}. Please add a '## [Unreleased]' section at the top of your changelog.")
-        }
+        if (start == -1) return null
 
         val result = mutableListOf<String>()
         for (i in (start + 1) until lines.size) {
