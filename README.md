@@ -52,7 +52,7 @@ Copy the production-ready workflow templates from the [`samples/workflows`](file
 * **[android-release-and-publish.yml](/samples/workflows/android-release-and-publish.yml)** — Release: signs APKs/AABs, publishes to the Google Play Store (Triple-T GPP), promotes `CHANGELOG.md`, and opens an automated PR.
 
 > [!TIP]
-> New here? Jump straight to [Usage Guide](#usage-guide) for detailed task examples, or read the full [Specification & Contract Rules](#specification--contract-rules) for advanced behavior.
+> New here? Jump straight to [Usage Guide](#usage-guide) for detailed task examples, or read the full [How This Work](#How-This-Work) for advanced behavior.
 
 ---
 
