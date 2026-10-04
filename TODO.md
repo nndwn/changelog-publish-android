@@ -13,3 +13,4 @@
 - [x] ⏫ tambahkan fitur output json #development #v0.2.4 #feature 🛫 2026-10-01 12:47 ✅ 2026-10-01 12:47 ➕ 2026-10-01 12:46 🆔 V3IZSg
 - [x] 🔺 #issue plugin masih bermasalah di variant dan ada masalah di track GPP #production #v0.3.0 🛫 2026-10-02 07:02 ✅ 2026-10-02 07:02 ➕ 2026-10-02 07:00 🆔 RY2CPp
 - [x] 🔼 perbaikin #Readme masih ada tulisan Specification & Contract Rules 🛫 2026-10-02 10:51 ✅ 2026-10-02 10:54 ➕ 2026-10-02 07:12 🆔 TJJ40b
+- [x] ⏫ #feature #development buat pengembangan dapat di lakukan pengembangan plugin grandle nanti nya CI-CD akan mengunakan ini #v0.4.0 🛫 2026-10-04 15:17 ✅ 2026-10-04 15:38 ➕ 2026-10-04 15:17 🆔 x2nIu5

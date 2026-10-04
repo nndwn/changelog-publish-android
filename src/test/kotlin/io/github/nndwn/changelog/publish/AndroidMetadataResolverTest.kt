@@ -84,4 +84,14 @@ class AndroidMetadataResolverTest {
         val metadata = AndroidMetadataResolver.resolve(project)
         assertEquals("FallbackApp", metadata.appName)
     }
+
+    @Test
+    fun resolve_usesProjectVersion_whenNoAndroidConfigExists() {
+        val project = ProjectBuilder.builder().withName("GradlePluginProject").build()
+        project.version = "0.5.0"
+
+        val metadata = AndroidMetadataResolver.resolve(project)
+        assertEquals("GradlePluginProject", metadata.appName)
+        assertEquals("0.5.0", metadata.versionName)
+    }
 }

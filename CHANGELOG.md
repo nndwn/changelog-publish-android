@@ -2,6 +2,12 @@
 # Changelog
 
 ## [Unreleased]
+### Added
+- Added automatic fallback to `project.version` for resolving `versionName` when `android.defaultConfig.versionName` is not set, enabling seamless usage for Gradle plugin, Kotlin JVM, and multiplatform projects.
+- Added `gradle-plugin-build-and-draft.yml` workflow template in `samples/workflows/` for automated CI/CD build, testing, and GitHub Draft Releases for Gradle plugin and JVM projects.
+
+### Changed
+- Refactored `AndroidMetadataResolver` and `ArtifactNaming` to lower Cognitive Complexity and improve code maintainability.
 
 ## [0.3.2] - 2026-10-02
 ### Changed

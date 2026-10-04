@@ -9,7 +9,7 @@ plugins {
 }
 
 group = "io.github.nndwn"
-version = "0.3.2"
+version = "0.4.0"
 
 java {
     sourceCompatibility = JavaVersion.VERSION_17

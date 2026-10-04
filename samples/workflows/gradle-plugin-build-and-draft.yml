@@ -1,0 +1,130 @@
+name: Gradle Plugin Build & Draft Release
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit-tests:
+    name: Run Unit Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Java JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: Make gradlew executable
+        run: chmod +x gradlew
+
+      - name: Run Unit Tests
+        run: ./gradlew test --stacktrace
+
+      - name: Upload Test Results on Failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-reports
+          path: '**/build/reports/tests/'
+
+  build-and-draft:
+    name: Build Check & Create Draft Release
+    if: github.event_name != 'pull_request'
+    needs: unit-tests
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Java JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          cache-read-only: true
+
+      - name: Make gradlew executable
+        run: chmod +x gradlew
+
+      - name: Verify Build
+        run: ./gradlew build --stacktrace
+
+      - name: Generate Changelog Payload
+        run: ./gradlew generateChangelog --stacktrace
+
+      - name: Parse Changelog Metadata
+        id: parse_changelog
+        run: |
+          CHANGELOG_JSON_FILE="build/reports/changelog/changelog.json"
+          if [ ! -f "$CHANGELOG_JSON_FILE" ]; then
+            CHANGELOG_JSON_FILE="app/build/reports/changelog/changelog.json"
+          fi
+
+          VERSION_NAME=$(jq -r '.metadata.versionName' "$CHANGELOG_JSON_FILE")
+          APP_NAME=$(jq -r '.metadata.appName' "$CHANGELOG_JSON_FILE")
+
+          echo "TAG_NAME=v${VERSION_NAME}" >> $GITHUB_ENV
+          echo "VERSION_NAME=${VERSION_NAME}" >> $GITHUB_ENV
+          echo "APP_NAME=${APP_NAME}" >> $GITHUB_ENV
+
+          # An empty '## [Unreleased]' (typical right after a release was promoted) means there is
+          # nothing new to draft. Flag it instead of failing, so the draft-release steps below are
+          # skipped with a warning rather than producing an empty draft.
+          if jq -e '.releaseNotes | gsub("[[:space:]]";"") | length > 0' "$CHANGELOG_JSON_FILE" > /dev/null; then
+            echo "HAS_NOTES=true" >> $GITHUB_ENV
+          else
+            echo "HAS_NOTES=false" >> $GITHUB_ENV
+            echo "::warning title=Empty changelog::'## [Unreleased]' in CHANGELOG.md is empty - skipping the draft release for v${VERSION_NAME}."
+          fi
+
+          echo "RELEASE_NOTES<<EOF" >> $GITHUB_ENV
+          jq -r '.releaseNotes' "$CHANGELOG_JSON_FILE" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+
+      - name: Remove Old Release Drafts
+        if: env.HAS_NOTES == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh api repos/${{ github.repository }}/releases \
+            --jq '.[] | select(.draft == true) | .id' \
+            | xargs -r -I '{}' gh api -X DELETE repos/${{ github.repository }}/releases/{}
+
+      - name: Create GitHub Draft Release
+        if: env.HAS_NOTES == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          tag_name: ${{ env.TAG_NAME }}
+          name: "${{ env.APP_NAME }} v${{ env.VERSION_NAME }}"
+          body: |
+            ## 🚀 ${{ env.APP_NAME }} Draft Release v${{ env.VERSION_NAME }}
+
+            ### 📝 Release Notes
+            ${{ env.RELEASE_NOTES }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

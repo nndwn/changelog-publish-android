@@ -16,28 +16,32 @@ object AndroidMetadataResolver {
     }
 
     private fun resolveVersionInfo(project: Project): Pair<String, Int> {
-        var versionName = "1.0.0"
-        var versionCode = 1
-
-        val androidExt = project.extensions.findByName("android") ?: return versionName to versionCode
-        try {
-            val defaultConfig = androidExt.javaClass.getMethod("getDefaultConfig").invoke(androidExt)
-                ?: return versionName to versionCode
-
-            val vName = defaultConfig.javaClass.getMethod("getVersionName").invoke(defaultConfig) as? String
-            if (!vName.isNullOrEmpty()) {
-                versionName = vName
-            }
-
-            val vCode = defaultConfig.javaClass.getMethod("getVersionCode").invoke(defaultConfig) as? Int
-            if ((vCode != null) && (vCode > 0)) {
-                versionCode = vCode
-            }
-        } catch (_: Exception) {
-            // Ignore if android API not found
-        }
+        val (androidVersionName, versionCode) = extractAndroidVersion(project)
+        val versionName = androidVersionName
+            .ifBlank { extractProjectVersion(project) }
+            .ifBlank { "1.0.0" }
 
         return versionName to versionCode
+    }
+
+    private fun extractAndroidVersion(project: Project): Pair<String, Int> {
+        val androidExt = project.extensions.findByName("android") ?: return "" to 1
+        return try {
+            val defaultConfig = androidExt.javaClass.getMethod("getDefaultConfig").invoke(androidExt)
+                ?: return "" to 1
+
+            val vName = (defaultConfig.javaClass.getMethod("getVersionName").invoke(defaultConfig) as? String).orEmpty()
+            val vCode = (defaultConfig.javaClass.getMethod("getVersionCode").invoke(defaultConfig) as? Int) ?: 1
+
+            vName to if (vCode > 0) vCode else 1
+        } catch (_: Exception) {
+            "" to 1
+        }
+    }
+
+    private fun extractProjectVersion(project: Project): String {
+        val projVersion = project.version.toString().trim()
+        return if (projVersion != "unspecified") projVersion else ""
     }
 
     private fun resolveAppName(project: Project, flavorName: String?): String {
