@@ -2,7 +2,6 @@ package io.github.nndwn.changelog.publish.data
 
 import io.github.nndwn.changelog.publish.domain.model.AndroidMetadata
 import io.github.nndwn.changelog.publish.domain.model.ChangelogData
-import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
 /**

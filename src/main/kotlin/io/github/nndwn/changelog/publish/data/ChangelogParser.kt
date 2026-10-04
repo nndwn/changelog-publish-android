@@ -44,7 +44,12 @@ object ChangelogParser {
         return existingFile ?: File(rootDir, "CHANGELOG.md")
     }
 
-    @Deprecated("Use findChangelogFile(rootDir: File) instead to remain configuration cache compatible.")
+    @Deprecated("Use findChangelogFile(rootDir: File) instead to remain configuration cache compatible.",
+        ReplaceWith(
+            "findChangelogFile(project.rootProject.projectDir)",
+            "io.github.nndwn.changelog.publish.data.ChangelogParser.findChangelogFile"
+        )
+    )
     fun findChangelogFile(project: Project): File {
         return findChangelogFile(project.rootProject.projectDir)
     }
@@ -108,7 +113,6 @@ object ChangelogParser {
         for (line in lines) {
             val trimmed = line.trim()
 
-            // Flavor subsection headers (`### [Flavor]`) are metadata, not release note content.
             if (FLAVOR_HEADER_REGEX.containsMatchIn(trimmed)) {
                 continue
             }

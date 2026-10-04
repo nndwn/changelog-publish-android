@@ -10,6 +10,8 @@ import java.text.Normalizer
  */
 object ArtifactNaming {
 
+    private const val FALLBACK_NAME = "app"
+
     private val INVALID_APP_CHARS = Regex("[^A-Za-z0-9_-]+")
     private val INVALID_VERSION_CHARS = Regex("[^A-Za-z0-9._-]+")
     private val COMBINING_MARKS = Regex("\\p{M}+")
@@ -20,13 +22,13 @@ object ArtifactNaming {
      * Diacritics are stripped, and any remaining unsupported characters are replaced with `_`.
      * If nothing meaningful remains (e.g. the name is only emoji or non-Latin script), [fallback] is used.
      */
-    fun sanitizeAppName(rawName: String, fallback: String = "app"): String {
+    fun sanitizeAppName(rawName: String, fallback: String = FALLBACK_NAME): String {
         val decomposed = Normalizer.normalize(rawName, Normalizer.Form.NFKD).replace(COMBINING_MARKS, "")
         val cleaned = decomposed
             .replace(INVALID_APP_CHARS, "_")
             .replace(REPEATED_SEPARATORS, "_")
             .trim('_', '-')
-        return cleaned.ifBlank { fallback.ifBlank { "app" } }
+        return cleaned.ifBlank { fallback.ifBlank { FALLBACK_NAME } }
     }
 
     /**
@@ -52,20 +54,29 @@ object ArtifactNaming {
         flavorName: String?,
         buildType: String,
         outputSuffix: String? = null,
-        fallbackAppName: String = "app",
+        fallbackAppName: String = FALLBACK_NAME,
         extension: String = "apk",
     ): String {
         val safeApp = sanitizeAppName(appName, fallbackAppName)
         val safeVersion = sanitizeVersionName(versionName)
-        val flavorPart = flavorName
-            ?.takeIf { it.isNotBlank() }
-            ?.let { "_${it.replace(INVALID_APP_CHARS, "_").trim('_')}" }
-            .orEmpty()
-        val suffixPart = outputSuffix
-            ?.takeIf { it.isNotBlank() }
-            ?.let { "_${it.replace(INVALID_APP_CHARS, "_").trim('_')}" }
-            .orEmpty()
+        val flavorPart = formatPart(flavorName)
+        val suffixPart = formatPart(outputSuffix)
 
         return "${safeApp}_v${safeVersion}(${versionCode})${flavorPart}_${buildType}${suffixPart}.${extension}"
+    }
+
+    private fun formatPart(value: String?): String {
+        return value
+            ?.takeIf { it.isNotBlank() }
+            ?.let { sanitizeToken(it) }
+            ?.takeIf { it.isNotEmpty() }
+            ?.let { "_$it" }
+            .orEmpty()
+    }
+
+    private fun sanitizeToken(rawToken: String): String {
+        return rawToken
+            .replace(INVALID_APP_CHARS, "_")
+            .trim('_')
     }
 }

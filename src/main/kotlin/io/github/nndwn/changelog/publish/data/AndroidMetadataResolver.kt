@@ -9,52 +9,57 @@ import javax.xml.parsers.DocumentBuilderFactory
 object AndroidMetadataResolver {
 
     fun resolve(project: Project, flavorName: String? = null): AndroidMetadata {
-        var appName = project.name
+        val (versionName, versionCode) = resolveVersionInfo(project)
+        val appName = resolveAppName(project, flavorName)
+
+        return AndroidMetadata(appName = appName, versionName = versionName, versionCode = versionCode)
+    }
+
+    private fun resolveVersionInfo(project: Project): Pair<String, Int> {
         var versionName = "1.0.0"
         var versionCode = 1
 
-        val androidExt = project.extensions.findByName("android")
-        if (androidExt != null) {
-            try {
-                val defaultConfig = androidExt.javaClass.getMethod("getDefaultConfig").invoke(androidExt)
-                if (defaultConfig != null) {
-                    val vName = defaultConfig.javaClass.getMethod("getVersionName").invoke(defaultConfig) as? String
-                    if (!vName.isNullOrEmpty()) {
-                        versionName = vName
-                    }
+        val androidExt = project.extensions.findByName("android") ?: return versionName to versionCode
+        try {
+            val defaultConfig = androidExt.javaClass.getMethod("getDefaultConfig").invoke(androidExt)
+                ?: return versionName to versionCode
 
-                    val vCode = defaultConfig.javaClass.getMethod("getVersionCode").invoke(defaultConfig) as? Int
-                    if (vCode != null && vCode > 0) {
-                        versionCode = vCode
-                    }
-                }
-            } catch (ignored: Exception) {
+            val vName = defaultConfig.javaClass.getMethod("getVersionName").invoke(defaultConfig) as? String
+            if (!vName.isNullOrEmpty()) {
+                versionName = vName
             }
+
+            val vCode = defaultConfig.javaClass.getMethod("getVersionCode").invoke(defaultConfig) as? Int
+            if ((vCode != null) && (vCode > 0)) {
+                versionCode = vCode
+            }
+        } catch (_: Exception) {
+            // Ignore if android API not found
         }
 
-        // 1. Try flavor-specific manifest if flavorName is provided
+        return versionName to versionCode
+    }
+
+    private fun resolveAppName(project: Project, flavorName: String?): String {
         if (!flavorName.isNullOrBlank()) {
-            val flavorManifest = project.file("src/$flavorName/AndroidManifest.xml")
-            if (flavorManifest.exists()) {
-                val extractedName = parseAppNameFromManifest(flavorManifest, project, flavorName)
-                if (!extractedName.isNullOrEmpty()) {
-                    appName = extractedName
-                }
+            val nameFromFlavor = extractAppNameFromSourceSet(project, flavorName, flavorName)
+            if (!nameFromFlavor.isNullOrEmpty()) {
+                return nameFromFlavor
             }
         }
 
-        // 2. Fallback to main manifest if appName was not resolved from flavor
-        if (appName == project.name) {
-            val mainManifest = project.file("src/main/AndroidManifest.xml")
-            if (mainManifest.exists()) {
-                val extractedName = parseAppNameFromManifest(mainManifest, project, flavorName)
-                if (!extractedName.isNullOrEmpty()) {
-                    appName = extractedName
-                }
-            }
+        val nameFromMain = extractAppNameFromSourceSet(project, "main", flavorName)
+        if (!nameFromMain.isNullOrEmpty()) {
+            return nameFromMain
         }
 
-        return AndroidMetadata(appName = appName, versionName = versionName, versionCode = versionCode)
+        return project.name
+    }
+
+    private fun extractAppNameFromSourceSet(project: Project, sourceSet: String, flavorName: String?): String? {
+        val manifest = project.file("src/$sourceSet/AndroidManifest.xml")
+        if (!manifest.exists()) return null
+        return parseAppNameFromManifest(manifest, project, flavorName)
     }
 
     private fun parseAppNameFromManifest(manifestFile: File, project: Project, flavorName: String? = null): String? {
@@ -66,16 +71,16 @@ object AndroidMetadataResolver {
                 val appNode = appNodes.item(0)
                 val labelAttr = appNode.attributes?.getNamedItem("android:label")?.nodeValue
                 if (!labelAttr.isNullOrEmpty()) {
-                    if (labelAttr.startsWith("@string/")) {
+                    return if (labelAttr.startsWith("@string/")) {
                         val stringName = labelAttr.removePrefix("@string/")
-                        return resolveStringResource(project, stringName, flavorName)
+                        resolveStringResource(project, stringName, flavorName)
                     } else {
-                        return labelAttr
+                        labelAttr
                     }
                 }
             }
             null
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             null
         }
     }
@@ -83,7 +88,6 @@ object AndroidMetadataResolver {
     private fun resolveStringResource(project: Project, stringName: String, flavorName: String? = null): String? {
         val docBuilder = DocumentBuilderFactory.newInstance().newDocumentBuilder()
 
-        // 1. Try flavor strings.xml first
         if (!flavorName.isNullOrBlank()) {
             val flavorStringsFile = project.file("src/$flavorName/res/values/strings.xml")
             if (flavorStringsFile.exists()) {
@@ -114,7 +118,7 @@ object AndroidMetadataResolver {
                 }
             }
             null
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             null
         }
     }

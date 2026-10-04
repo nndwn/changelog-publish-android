@@ -104,7 +104,7 @@ The `CHANGELOG.md` file in the root directory adheres strictly to the [Keep a Ch
 4. **Section Termination**:
    * Parsing terminates immediately when encountering the next version header (e.g., `## [x.x.x]` or a second `## [Unreleased]`) or reaching the end of the file.
 5. **Flavor & Localization Subsections**:
-   * `CHANGELOG.md` supports flavor subsections (e.g., `### [FOSS]` or `### [Playstore]`) and locale/language subsections (e.g., `#### [en-US]`, `#### [id-ID]`).
+   * `CHANGELOG.md` supports flavor subsections (e.g., `### [FOSS]` or `### [Playstore]`) and BCP 47 locale/language subsections (e.g., `#### [en-US]`, `#### [id-ID]`).
    * A `### [X]` heading is treated as a **flavor** only when `X` matches (case-insensitive) a real product flavor from `com.android.application` or an explicit `changelogPublish.playFlavors` entry. Otherwise it is treated as a **category heading** (e.g., `### Added`, `### [Removed]`).
    * Category headings are preserved: the heading text becomes a line and its bullets are indented.
    * **Scope follows position**: content before the first `### [Flavor]` section is global (`src/main`); content under a `### [Flavor]` section belongs to that flavor (`src/<flavor>`), including any category headings placed there. A category heading can therefore be global or flavor-specific depending on where it is placed.
