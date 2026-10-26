@@ -3,7 +3,7 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
     `kotlin-dsl`
-    kotlin("plugin.serialization") version "2.4.20"
+    kotlin("plugin.serialization") version "2.4.21"
     `maven-publish`
     id("com.gradle.plugin-publish") version "2.2.1"
 }
@@ -39,7 +39,7 @@ gradlePlugin {
 
 dependencies {
     implementation(gradleApi())
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.12.0")
 
     testImplementation(gradleTestKit())
     testImplementation("junit:junit:4.13.2")
